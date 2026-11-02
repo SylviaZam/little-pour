@@ -1,0 +1,1782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Little Pour</title>
+<meta name="description" content="Latte art practice that learns your level. Made for a barista who wanted to practice off the clock.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF7F3; --card:#FFFFFF; --ink:#4A3A30; --muted:#8C7B70; --line:rgba(74,58,48,.10);
+  --accent:#B07A52; --accent-ink:#FFFFFF; --soft:#F4E8DC; --pink:#EE9FB0; --pink-soft:#FBE6EB;
+  --shadow:0 12px 32px rgba(120,90,60,.10),0 2px 6px rgba(120,90,60,.06);
+  --r:22px;
+}
+body[data-mode="matcha"]{ --accent:#7DA35A; --soft:#E7F1DC; }
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:'Nunito',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{overflow-x:hidden}
+h1,h2,h3,.btn,.chip,.timer,.lvl,.ribbon,.score-big,.count{font-family:'Pixelify Sans',system-ui,sans-serif;font-weight:500}
+h1{font-size:44px;margin:6px 0 4px;letter-spacing:-.5px}
+h2{font-size:26px;margin:0 0 6px;letter-spacing:-.2px}
+h3{font-size:19px;margin:0}
+p{line-height:1.5}
+.sub{color:var(--muted);margin:0 0 18px;max-width:560px}
+button{font:inherit;color:inherit;cursor:pointer}
+.screen{display:none;min-height:100vh;min-height:100dvh;padding:20px 16px 28px;flex-direction:column;align-items:center}
+.screen.active{display:flex}
+.wrap{width:100%;max-width:980px}
+
+.btn{border:0;border-radius:999px;padding:13px 22px;font-size:16px;background:var(--card);box-shadow:var(--shadow);transition:transform .15s ease, box-shadow .15s ease, background .2s}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.sm{padding:9px 15px;font-size:14px}
+.btn:focus-visible,.seg button:focus-visible,.mode button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.linkish{background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;padding:6px;font-size:14px}
+.chip{display:inline-block;font-size:12.5px;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--ink)}
+.chip.pink{background:var(--pink-soft)}
+.key{display:inline-block;font-family:'Pixelify Sans';font-size:12px;padding:2px 8px;border-radius:7px;background:var(--card);box-shadow:0 1px 0 rgba(0,0,0,.12),0 0 0 1px var(--line)}
+
+/* mode toggle */
+.mode{display:inline-flex;background:var(--card);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
+.mode button{border:0;background:none;border-radius:999px;padding:8px 16px;font-family:'Pixelify Sans';font-size:15px;display:flex;align-items:center;gap:7px}
+.mode button[aria-pressed="true"]{background:var(--soft)}
+.mode .swatch{width:12px;height:12px;border-radius:50%;display:inline-block}
+
+/* start */
+#s-start{justify-content:center}
+.start-card{text-align:center;max-width:460px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.start-card .lede{color:var(--muted);margin:0;font-size:17px}
+.start-card .tip{color:var(--muted);font-size:14px;margin-top:6px}
+.welcome{margin:0;font-size:15px;min-height:1.2em}
+.foot-note{color:var(--muted);font-size:13px;margin-top:18px;opacity:.85}
+
+/* placement */
+.place-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;width:100%;margin-bottom:18px}
+.pick{border:0;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .15s}
+.pick:hover{transform:translateY(-2px)}
+.pick .lvl{font-size:12px;color:var(--muted)}
+.topbar{width:100%;max-width:980px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap}
+.icon-btn{border:0;background:var(--card);width:40px;height:40px;border-radius:50%;box-shadow:var(--shadow);font-size:16px;display:inline-flex;align-items:center;justify-content:center}
+
+/* menu */
+.menu-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;width:100%;margin-bottom:16px}
+.menu-head p{margin:0;color:var(--muted)}
+.menu-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;min-width:20px;padding:1px 6px;margin-left:6px;border-radius:999px;background:var(--pink);color:#fff;font-size:12px}
+.badge:empty{display:none}
+.diff-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;width:100%}
+.diff-row .lab{font-family:'Pixelify Sans';color:var(--muted)}
+.seg{display:inline-flex;background:var(--card);border-radius:999px;padding:4px;box-shadow:var(--shadow)}
+.seg button{border:0;background:none;border-radius:999px;padding:7px 15px;font-family:'Pixelify Sans';font-size:14.5px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;width:100%}
+.card{position:relative;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;display:flex;gap:14px;align-items:flex-start}
+.card.rec{box-shadow:0 0 0 2.5px var(--pink),var(--shadow)}
+.card canvas{flex:none}
+.card-body{flex:1;min-width:0}
+.card-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 8px}
+.card-top .lvl{white-space:nowrap}
+.card p{margin:6px 0 8px;color:var(--muted);font-size:14px}
+.lvl{font-size:12px;color:var(--muted);white-space:nowrap}
+.meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.dots{letter-spacing:2px;color:var(--accent)}
+.stars-sm{color:#E9B949;letter-spacing:1px}
+.card-btns{display:flex;gap:8px;flex-wrap:wrap}
+.ribbon{position:absolute;top:-11px;left:16px;background:var(--pink);color:#fff;font-size:12px;padding:3px 10px;border-radius:999px}
+.menu-foot{display:flex;gap:14px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+
+/* game */
+#s-game{padding-top:12px;user-select:none;-webkit-user-select:none}
+.hud{width:100%;max-width:680px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hud-left{display:flex;align-items:center;gap:10px;min-width:0}
+.hud-name{font-family:'Pixelify Sans';font-size:20px}
+.hud-right{display:flex;align-items:center;gap:10px}
+.timer{font-size:20px;min-width:70px;text-align:right;font-variant-numeric:tabular-nums}
+.timer.low{color:#D9677E}
+.stage-wrap{position:relative;margin:4px 0;touch-action:none}
+#stage{display:block;touch-action:none;cursor:none}
+.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;color:#fff;text-shadow:0 4px 20px rgba(60,30,10,.35);pointer-events:none}
+.step{font-family:'Pixelify Sans';font-size:18px;text-align:center;min-height:1.4em}
+.hint{color:var(--muted);font-size:14px;text-align:center;margin-top:6px}
+
+.tbar-wrap{width:100%;max-width:680px;height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin:10px 0 2px}
+.tbar-wrap i{display:block;height:100%;width:100%;border-radius:999px;background:var(--accent);transition:background .3s}
+.tbar-wrap i.low{background:#E07A8E}
+/* results */
+.res{width:100%;max-width:900px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:26px;align-items:start}
+.res-art{display:flex;flex-direction:column;align-items:center;gap:10px}
+.toggle{font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center;cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+.stars{font-size:30px;color:#E9B949;letter-spacing:4px;margin:4px 0}
+.stars .off{color:#E8DED5}
+.score-big{font-size:38px}
+.score-big small{font-size:16px;color:var(--muted)}
+.bars{display:grid;gap:10px;margin:14px 0 18px}
+.bar-row{display:grid;grid-template-columns:96px 1fr 38px;gap:10px;align-items:center;font-size:14px}
+.bar-row .nm{font-family:'Pixelify Sans'}
+.bar-row .ds{grid-column:2/4;color:var(--muted);font-size:12.5px;margin-top:-6px}
+.bar{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.coach{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:16px}
+.coach h3{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.coach p{margin:0;color:var(--muted);font-size:14px}
+.res-btns{display:flex;gap:10px;flex-wrap:wrap}
+
+/* notebook + sheets */
+.entry{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.entry:first-child{border-top:0}
+.entry .tx{flex:1;font-size:14.5px}
+.entry .why{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.entry.undone .main{text-decoration:line-through;color:var(--muted)}
+.entry .btn{flex:none}
+.sheet{position:fixed;inset:0;background:rgba(74,58,48,.18);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.sheet[hidden]{display:none}
+.sheet-card{background:var(--bg);border-radius:26px;box-shadow:0 30px 80px rgba(74,58,48,.25);width:100%;max-width:520px;max-height:85vh;overflow:auto;padding:20px}
+.sheet-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.sheet-card ul{list-style:none;padding:0;margin:0}
+.lvl-list{display:grid;gap:8px}
+.lvl-list .btn{text-align:left;display:flex;justify-content:space-between}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:16px 0}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:all .25s;z-index:30}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- pixel UI ---------- */
+:root{ --ink:#4A3529; --muted:#8A7364; --line:#4A3529; --shadow:4px 4px 0 rgba(74,53,41,.16); --r:0px; --px:2px solid var(--ink); }
+html,body,button,h1,h2,h3,.btn,.chip,.timer,.lvl,.ribbon,.score-big,.count{font-family:'Pixelify Sans',system-ui,sans-serif}
+body{font-size:16.5px}
+h1{font-size:46px;font-weight:600;letter-spacing:0}
+h2{font-size:28px;font-weight:600;letter-spacing:0}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+.btn{border-radius:0;border:var(--px);box-shadow:0 4px 0 var(--ink);padding:11px 20px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 5px 0 var(--ink)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.ghost{background:var(--card);box-shadow:0 4px 0 var(--ink)}
+.btn.sm{padding:7px 12px}
+.mode,.seg{border-radius:0;border:var(--px);box-shadow:var(--shadow);padding:3px}
+.mode button,.seg button{border-radius:0}
+.chip{border-radius:0;border:2px solid var(--ink);padding:2px 8px}
+.key{border-radius:0;box-shadow:0 2px 0 var(--ink);border:2px solid var(--ink);padding:0 6px}
+.card,.pick,.coach{border-radius:0;border:var(--px);box-shadow:var(--shadow)}
+.card.rec{box-shadow:var(--shadow);border-color:#D97B90;outline:2px solid #D97B90}
+.ribbon,.badge{border-radius:0;border:2px solid var(--ink)}
+.icon-btn{border-radius:0;border:var(--px);box-shadow:0 3px 0 var(--ink)}
+.sheet-card{border-radius:0;border:3px solid var(--ink);box-shadow:8px 8px 0 rgba(74,53,41,.22)}
+.tbar-wrap{border-radius:0;border:2px solid var(--ink);height:14px;background:var(--card)}
+.tbar-wrap i{border-radius:0;background:repeating-linear-gradient(90deg,var(--accent) 0 8px,color-mix(in srgb,var(--accent) 80%,#fff) 8px 10px)}
+.bar{border-radius:0;border:2px solid var(--ink);height:14px;background:var(--card)}
+.bar i{border-radius:0}
+.stars{letter-spacing:6px}
+.count{font-size:72px;color:#fff;text-shadow:4px 4px 0 var(--ink)}
+#toast{border-radius:0;border:2px solid #fff;box-shadow:4px 4px 0 rgba(0,0,0,.2)}
+.toggle input{accent-color:var(--accent)}
+/* ---------- the bar ---------- */
+html{background:#6A4430}
+body{background:transparent}
+#bar{position:fixed;left:0;top:0;z-index:-1;image-rendering:pixelated;pointer-events:none}
+:root{ --muted:#6F5848; --accent:#8C5733; --soft:#F1E3D4 }
+body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
+.panel{background:var(--bg);border:3px solid var(--ink);box-shadow:6px 6px 0 rgba(28,14,6,.5);padding:22px 24px}
+.wrap.panel{padding:24px 26px 26px}
+.ribbon,.badge{color:var(--ink)}
+.timer.low{color:#A8334E}
+.icon-btn{background:var(--bg)}
+.kicker{display:inline-block;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--ink);padding-bottom:2px}
+/* start: menu card on the left, the cup on the bar to the right */
+.start-layout{display:grid;grid-template-columns:minmax(0,430px) auto;gap:48px;align-items:center;justify-content:center;width:100%;max-width:1120px}
+.start-card{text-align:left;align-items:flex-start;max-width:430px}
+.start-card h1{margin:0}
+.hero-art{display:flex;justify-content:center;align-items:center}
+#hero.swap{animation:blink .3s steps(2) both}
+@keyframes blink{50%{opacity:0}}
+@keyframes slide-in{from{transform:translateX(-36px);opacity:0}}
+@keyframes drop-in{from{transform:translateY(-28px);opacity:0}}
+@keyframes rise-in{from{transform:translateY(14px);opacity:0}}
+.screen.active .start-card{animation:slide-in .42s steps(6) both}
+.screen.active .hero-art{animation:drop-in .5s steps(6) .12s both}
+.screen.active .wrap.panel,.screen.active .res-panel,.screen.active .hud-panel{animation:rise-in .3s steps(4) both}
+.screen.active .card,.screen.active .pick{animation:rise-in .3s steps(4) both;animation-delay:calc(var(--i,0) * 35ms)}
+/* game */
+.hud-panel{width:100%;max-width:680px;padding:10px 14px 12px}
+.hud-panel .tbar-wrap{margin:8px 0 0}
+.tip-panel{max-width:680px;width:100%;padding:10px 16px;margin-top:4px}
+.tip-panel .hint{margin-top:2px}
+/* results */
+.res-art .toggle{padding:6px 12px;box-shadow:4px 4px 0 rgba(28,14,6,.5)}
+.res-panel{padding:20px 22px}
+@media (max-width:820px){
+  .start-layout{grid-template-columns:1fr;gap:16px;justify-items:center}
+  .hero-art{order:-1}
+  .start-card{text-align:center;align-items:center}
+}
+@media (max-width:720px){
+  h1{font-size:36px}
+  .res{grid-template-columns:1fr}
+  .card{flex-direction:column;align-items:center;text-align:center}
+  .card-top,.meta,.card-btns{justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body data-mode="coffee">
+
+<!-- START -->
+<section id="s-start" class="screen">
+  <div class="start-layout">
+  <div class="start-card panel">
+    <span class="kicker">Latte art practice</span>
+    <h1>Little Pour</h1>
+    <p class="lede">Latte art practice for off the clock. No milk wasted, no orders waiting.</p>
+    <div class="mode" role="group" aria-label="Drink">
+      <button data-mode="coffee"><span class="swatch" style="background:#A96C40"></span>Coffee</button>
+      <button data-mode="matcha"><span class="swatch" style="background:#AECB82"></span>Matcha</button>
+    </div>
+    <button class="btn primary" id="btn-start">Start pouring</button>
+    <p class="welcome" id="welcome"></p>
+    <p class="tip">Glide on the trackpad to aim. Hold <span class="key">Space</span> or press and hold to pour.</p>
+    <p class="foot-note">Made for a barista friend who wanted to get better at latte art without practicing on real customers.</p>
+  </div>
+  <div class="hero-art"><canvas id="hero" data-thumb="heart" data-size="440" data-scale="4" aria-hidden="true"></canvas></div>
+  </div>
+</section>
+
+<!-- PLACEMENT -->
+<section id="s-place" class="screen">
+  <div class="topbar"><button class="icon-btn" data-go="start" aria-label="Back">←</button></div>
+  <div class="wrap panel">
+    <h2>What's the hardest design you can pour on your own?</h2>
+    <p class="sub">Be honest. You'll pour it once with no guide, and Little Pour sets up your practice based on how it goes.</p>
+    <div class="place-grid" id="place-grid"></div>
+    <button class="btn ghost" id="btn-new">I'm brand new to this</button>
+  </div>
+</section>
+
+<!-- MENU -->
+<section id="s-menu" class="screen">
+  <div class="wrap panel">
+    <div class="menu-head">
+      <div>
+        <h2>Practice</h2>
+        <p id="level-line"></p>
+      </div>
+      <div class="menu-actions">
+        <div class="mode" role="group" aria-label="Drink">
+          <button data-mode="coffee"><span class="swatch" style="background:#A96C40"></span>Coffee</button>
+          <button data-mode="matcha"><span class="swatch" style="background:#AECB82"></span>Matcha</button>
+        </div>
+        <button class="btn sm" id="btn-notebook">Notebook<span class="badge" id="nb-badge"></span></button>
+      </div>
+    </div>
+    <div class="diff-row">
+      <span class="lab">Difficulty</span>
+      <div class="seg" id="diff-seg" role="group" aria-label="Difficulty">
+        <button data-diff="easy">Easy</button><button data-diff="medium">Medium</button><button data-diff="hard">Hard</button>
+      </div>
+      <span class="chip pink" id="diff-chip" hidden>Picked for you</span>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="menu-foot">
+      <button class="linkish" id="btn-replace">Retake the placement pour</button>
+      <button class="linkish" id="btn-forget">Forget everything about me</button>
+      <button class="linkish" data-go="start">Home</button>
+    </div>
+  </div>
+</section>
+
+<!-- GAME -->
+<section id="s-game" class="screen">
+  <div class="panel hud-panel">
+  <div class="hud">
+    <div class="hud-left">
+      <canvas id="hud-thumb" data-thumb="" data-size="48" aria-hidden="true"></canvas>
+      <div>
+        <div class="hud-name" id="hud-name"></div>
+        <span class="chip" id="hud-kind"></span>
+      </div>
+    </div>
+    <div class="hud-right">
+      <div class="timer" id="hud-time">0.0s</div>
+      <button class="icon-btn" id="btn-quit" aria-label="Leave this round">✕</button>
+    </div>
+  </div>
+  <div class="tbar-wrap"><i id="tbar"></i></div>
+  </div>
+  <div class="stage-wrap" id="stage-wrap">
+    <canvas id="stage" aria-label="Latte cup. Move to aim the pitcher, hold to pour."></canvas>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="panel tip-panel">
+  <div class="step" id="hud-step"></div>
+  <div class="hint">Glide to aim. Hold <span class="key">Space</span> or press and hold to pour. Let go between steps.</div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="s-results" class="screen">
+  <div class="res">
+    <div class="res-art">
+      <canvas id="res-canvas"></canvas>
+      <label class="toggle panel"><input type="checkbox" id="show-path"> Show my path over the guide</label>
+    </div>
+    <div class="panel res-panel">
+      <span class="chip" id="res-kind"></span>
+      <h2 id="res-title" style="margin-top:8px"></h2>
+      <div class="stars" id="res-stars"></div>
+      <div class="score-big"><span id="res-score"></span><small> / 100</small></div>
+      <div class="bars" id="res-bars"></div>
+      <div class="coach" id="res-coach"></div>
+      <div class="res-btns" id="res-btns"></div>
+    </div>
+  </div>
+</section>
+
+<!-- NOTEBOOK -->
+<div class="sheet" id="notebook" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="nb-title">
+    <header><h3 id="nb-title">Barista's notebook</h3><button class="icon-btn" data-close aria-label="Close">✕</button></header>
+    <p class="sub" style="font-size:14px">Every change Little Pour made based on your pours. If you disagree with one, undo it.</p>
+    <ul id="nb-list"></ul>
+  </div>
+</div>
+
+<!-- LEVEL PICKER -->
+<div class="sheet" id="picker" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="pk-title">
+    <header><h3 id="pk-title">Choose your level</h3><button class="icon-btn" data-close aria-label="Close">✕</button></header>
+    <p class="sub" style="font-size:14px">You know your hands better than a score does. Pick where you want to practice.</p>
+    <div class="lvl-list" id="pk-list"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =========================================================
+   Little Pour: latte art practice that learns your level
+   ========================================================= */
+const TAU = Math.PI * 2;
+const STEP = 1 / 60;
+const FLOW = 380;            // foam particles per second at a slow pour
+const SPACING_AREA = 0.00078; // area one foam particle covers (normalized units)
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+
+const PAL = {
+  coffee: { c0:'#D29A66', c1:'#B07444', c2:'#7E4829', dark:'#5A2F17', foam:'#FFFBF4', foamEdge:'#F4E4D0', foamShade:'#DDBF9C', line:'#B97D4C', haloC:'#E4B47F',
+            fleck:'rgba(255,226,180,.12)', spot:'rgba(70,32,10,.10)', flecky:'#DDA672', spotty:'#905533', rim:'rgba(45,22,6,.30)' },
+  matcha: { c0:'#D3E6AE', c1:'#AFCB84', c2:'#86AD5C', dark:'#557D30', foam:'#FEFEF8', foamEdge:'#ECF0DA', foamShade:'#CBD9AE', line:'#93B86C', haloC:'#D6E8B4',
+            fleck:'rgba(245,255,220,.14)', spot:'rgba(45,80,20,.10)', flecky:'#DCEDB8', spotty:'#729A4B', rim:'rgba(30,50,10,.24)' }
+};
+const PINK = '#EE9FB0';
+
+/* ---------- paths ---------- */
+function linePts(a, b, n = 24) {
+  const p = [];
+  for (let i = 0; i <= n; i++) { const t = i / n; p.push([lerp(a[0], b[0], t), lerp(a[1], b[1], t)]); }
+  return p;
+}
+// side-to-side wiggle along the line a→b, getting narrower as it goes
+function zigPts(a, b, amp0, amp1, waves, n = 160) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), px = -dy / L, py = dx / L;
+  const p = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, s = Math.sin(t * waves * TAU) * lerp(amp0, amp1, t) * Math.min(1, t * 8);
+    p.push([a[0] + dx * t + px * s, a[1] + dy * t + py * s]);
+  }
+  return p;
+}
+function bezPts(p0, p1, p2, p3, n = 40) {
+  const p = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    p.push([u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0],
+            u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]]);
+  }
+  return p;
+}
+function prep(st) {
+  if (st.kind === 'line') {
+    st.cum = [0];
+    for (let i = 1; i < st.pts.length; i++) {
+      const a = st.pts[i - 1], b = st.pts[i];
+      st.cum.push(st.cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1]));
+    }
+    st.len = st.cum[st.cum.length - 1];
+    st.start = st.pts[0]; st.end = st.pts[st.pts.length - 1];
+  } else {
+    st.start = st.end = st.at;
+    st.blobR = Math.sqrt(st.dur * FLOW * SPACING_AREA / Math.PI);
+  }
+  return st;
+}
+function nearest(st, x, y) {
+  if (st.kind === 'hold') { const vx = x - st.at[0], vy = y - st.at[1]; return { vx, vy, d: Math.hypot(vx, vy), f: 0 }; }
+  let best = 1e9, bx = 0, by = 0, bf = 0;
+  const p = st.pts;
+  for (let i = 1; i < p.length; i++) {
+    const ax = p[i-1][0], ay = p[i-1][1], sx = p[i][0] - ax, sy = p[i][1] - ay;
+    const l2 = sx * sx + sy * sy || 1e-9;
+    let u = ((x - ax) * sx + (y - ay) * sy) / l2; u = u < 0 ? 0 : u > 1 ? 1 : u;
+    const qx = ax + sx * u, qy = ay + sy * u, d = (x - qx) ** 2 + (y - qy) ** 2;
+    if (d < best) { best = d; bx = qx; by = qy; bf = (st.cum[i-1] + (st.cum[i] - st.cum[i-1]) * u) / st.len; }
+  }
+  return { vx: x - bx, vy: y - by, d: Math.sqrt(best), f: bf };
+}
+function pointAt(st, f) {
+  if (st.kind === 'hold') return st.at;
+  const target = clamp01(f) * st.len, c = st.cum;
+  let i = 1; while (i < c.length - 1 && c[i] < target) i++;
+  const seg = c[i] - c[i-1] || 1e-9, u = (target - c[i-1]) / seg;
+  return [lerp(st.pts[i-1][0], st.pts[i][0], u), lerp(st.pts[i-1][1], st.pts[i][1], u)];
+}
+
+/* ---------- patterns: ordered by how baristas usually learn them ---------- */
+const ART_SCALE = 1.18; // designs are sketched small, then scaled to fill the cup
+function P(id, name, level, complexity, blurb, strokes) {
+  const sc = q => [q[0] * ART_SCALE, q[1] * ART_SCALE];
+  strokes.forEach(st => { if (st.at) st.at = sc(st.at); if (st.pts) st.pts = st.pts.map(sc); });
+  return { id, name, level, complexity, blurb, strokes: strokes.map(prep) };
+}
+const PATTERNS = [
+  P('monk', "Monk's Head", 'Beginner', 1, 'One steady dot. Every other design starts here.', [
+    { kind:'hold', at:[0, 0.04], dur:3.0, label:'Hold a steady dot in the middle' }]),
+  P('heart', 'Heart', 'Beginner', 1, 'A dot, then one quick pull through the middle.', [
+    { kind:'hold', at:[0, -0.10], dur:2.4, label:'Pour a dot, then let go' },
+    { kind:'line', pts:linePts([0, -0.44], [0, 0.44]), dur:0.65, label:'Pull straight through' }]),
+  P('ripple', 'Ripple Heart', 'Beginner', 2, 'Wide wiggles that barely back up, a dot on top, then one pull through.', [
+    { kind:'line', pts:zigPts([0, 0.30], [0, 0.0], 0.24, 0.22, 4), dur:2.6, label:'Wiggle wide, barely backing up' },
+    { kind:'hold', at:[0, -0.14], dur:0.9, label:'Let go, then a dot on top' },
+    { kind:'line', pts:linePts([0, -0.40], [0, 0.54]), dur:0.7, label:'Pull straight through' }]),
+  P('tulip', 'Tulip', 'Intermediate', 2, 'Three dots pushed into each other, then a pull through.', [
+    { kind:'hold', at:[0, 0.28], dur:1.3, label:'First dot, then let go' },
+    { kind:'hold', at:[0, 0.06], dur:1.2, label:'Push a second dot into it' },
+    { kind:'hold', at:[0, -0.16], dur:1.0, label:'Push in a third' },
+    { kind:'line', pts:linePts([0, -0.50], [0, 0.68]), dur:0.8, label:'Pull straight through' }]),
+  P('stack', 'Stacked Tulip', 'Intermediate', 3, 'Five smaller dots in a tight stack. It is all about stopping and starting cleanly.', [
+    { kind:'hold', at:[0, 0.44], dur:0.9, label:'First dot, then let go' },
+    { kind:'hold', at:[0, 0.26], dur:0.75, label:'Push in the second' },
+    { kind:'hold', at:[0, 0.09], dur:0.65, label:'Push in the third' },
+    { kind:'hold', at:[0, -0.08], dur:0.55, label:'Push in the fourth' },
+    { kind:'hold', at:[0, -0.24], dur:0.45, label:'A small fifth on top' },
+    { kind:'line', pts:linePts([0, -0.38], [0, 0.72]), dur:0.85, label:'Pull straight through' }]),
+  P('wing', 'Wing Tulip', 'Intermediate', 3, 'A short wiggle makes wings, then a tulip stacks on top.', [
+    { kind:'line', pts:zigPts([0, 0.42], [0, 0.22], 0.34, 0.30, 3), dur:2.0, label:'Wiggle wide for the wings' },
+    { kind:'hold', at:[0, 0.04], dur:1.0, label:'Push a dot into them' },
+    { kind:'hold', at:[0, -0.16], dur:0.8, label:'Push in one more' },
+    { kind:'line', pts:linePts([0, -0.34], [0, 0.66]), dur:0.8, label:'Pull straight through' }]),
+  P('rosetta', 'Rosetta', 'Intermediate', 3, 'Wiggle side to side while backing up, then pull through.', [
+    { kind:'line', pts:zigPts([0, 0.34], [0, -0.50], 0.34, 0.10, 6.5), dur:4.2, label:'Wiggle while backing up' },
+    { kind:'line', pts:linePts([0, -0.60], [0, 0.64]), dur:0.8, label:'Pull straight through' }]),
+  P('rosheart', 'Rosetta Heart', 'Advanced', 4, 'A shorter rosetta with a heart set on top, pulled through together.', [
+    { kind:'line', pts:zigPts([0, 0.46], [0, -0.14], 0.30, 0.10, 5), dur:3.4, label:'Wiggle while backing up' },
+    { kind:'hold', at:[0, -0.38], dur:1.2, label:'Let go, then pour a heart on top' },
+    { kind:'line', pts:linePts([0, -0.54], [0, 0.66]), dur:0.85, label:'Pull through both' }]),
+  P('double', 'Double Rosetta', 'Advanced', 5, 'Two slim rosettas side by side. Keep each wiggle narrow.', [
+    { kind:'line', pts:zigPts([-0.30, 0.34], [-0.30, -0.42], 0.17, 0.06, 6), dur:3.0, label:'Wiggle the left one' },
+    { kind:'line', pts:linePts([-0.30, -0.52], [-0.30, 0.50]), dur:0.7, label:'Pull through it' },
+    { kind:'line', pts:zigPts([0.30, 0.34], [0.30, -0.42], 0.17, 0.06, 6), dur:3.0, label:'Wiggle the right one' },
+    { kind:'line', pts:linePts([0.30, -0.52], [0.30, 0.50]), dur:0.7, label:'Pull through it' }]),
+  P('swan', 'Swan', 'Advanced', 5, 'A tilted rosetta wing, a small heart for the head, then drag it down into the neck.', [
+    { kind:'line', pts:zigPts([0.14, 0.50], [0.46, -0.30], 0.28, 0.07, 6), dur:3.8, label:'Wiggle the wing up to one side' },
+    { kind:'hold', at:[-0.32, -0.32], dur:0.6, label:'Pour a small heart for the head' },
+    { kind:'line', pts:bezPts([-0.32, -0.42], [-0.36, -0.02], [-0.22, 0.30], [0.08, 0.42]), dur:1.4, label:'Drag down through it for the neck' }]),
+];
+const DIFF = {
+  easy:   { name:'Easy',   tol:0.13,  mult:2.1 },
+  medium: { name:'Medium', tol:0.09,  mult:1.65 },
+  hard:   { name:'Hard',   tol:0.065, mult:1.35 },
+};
+const DIFF_ORDER = ['easy', 'medium', 'hard'];
+const GUIDE_NAMES = ['full', 'lighter', 'faint'];
+function timeLimit(p, diff) {
+  const base = p.strokes.reduce((a, s) => a + s.dur, 0) + 0.9 * p.strokes.length + 1.0;
+  return Math.round(base * DIFF[diff].mult * 10) / 10;
+}
+
+/* ---------- foam simulation ----------
+   The surface is filled with crema particles. Poured milk adds foam particles
+   that push the crema away, so layers and lines form the way they do in a cup. */
+const SIM = { MAX: 9500, SF: 0.030, SX: 0.026, SC: 0.017, CELL: 0.030, RIM: 0.975, DRAG: 1.0 };
+class Foam {
+  constructor() {
+    const M = SIM.MAX;
+    this.x = new Float32Array(M); this.y = new Float32Array(M); this.t = new Uint8Array(M); this.b = new Uint16Array(M);
+    this.G = Math.ceil(2 / SIM.CELL) + 1;
+    this.start = new Int32Array(this.G * this.G + 1);
+    this.fill = new Int32Array(this.G * this.G);
+    this.cellOf = new Int32Array(M); this.sorted = new Int32Array(M);
+    this.reset();
+  }
+  reset() {
+    this.n = 0; this.acc = 0; this.batch = 0; this.bt = 0; this.wasPour = false; this.hot = 0; this.ver = (this.ver || 0) + 1;
+    const s = 0.028, h = s * Math.sqrt(3) / 2;
+    let row = 0;
+    for (let y = -1; y <= 1; y += h, row++)
+      for (let x = -1 + (row % 2) * s / 2; x <= 1; x += s)
+        if (x * x + y * y < 0.95 * 0.95) this.add(x + (Math.random() - .5) * 0.004, y + (Math.random() - .5) * 0.004, 0);
+  }
+  add(x, y, t) { if (this.n >= SIM.MAX) return; const i = this.n++; this.x[i] = x; this.y[i] = y; this.t[i] = t; this.b[i] = this.batch; }
+  grid() {
+    const { G, start, fill, cellOf, sorted, x, y, n } = this, C = SIM.CELL;
+    start.fill(0);
+    for (let i = 0; i < n; i++) {
+      let gx = ((x[i] + 1) / C) | 0, gy = ((y[i] + 1) / C) | 0;
+      gx = gx < 0 ? 0 : gx >= G ? G - 1 : gx; gy = gy < 0 ? 0 : gy >= G ? G - 1 : gy;
+      const c = gy * G + gx; cellOf[i] = c; start[c + 1]++;
+    }
+    for (let c = 1; c <= G * G; c++) start[c] += start[c - 1];
+    for (let c = 0; c < G * G; c++) fill[c] = start[c];
+    for (let i = 0; i < n; i++) sorted[fill[cellOf[i]]++] = i;
+  }
+  solve() {
+    const { G, start, cellOf, sorted, x, y, t, n } = this;
+    const SF2 = SIM.SF, SX2 = SIM.SX, SC2 = SIM.SC, K = 0.5;
+    for (let i = 0; i < n; i++) {
+      const c = cellOf[i], gx = c % G, gy = (c / G) | 0, ti = t[i];
+      for (let oy = -1; oy <= 1; oy++) {
+        const ny = gy + oy; if (ny < 0 || ny >= G) continue;
+        for (let ox = -1; ox <= 1; ox++) {
+          const nx = gx + ox; if (nx < 0 || nx >= G) continue;
+          const cc = ny * G + nx;
+          for (let k = start[cc], e = start[cc + 1]; k < e; k++) {
+            const j = sorted[k]; if (j <= i) continue;
+            const tt = ti + t[j], s = tt === 2 ? SF2 : tt === 1 ? SX2 : SC2;
+            let dx = x[j] - x[i], dy = y[j] - y[i];
+            const d2 = dx * dx + dy * dy;
+            if (d2 >= s * s) continue;
+            if (d2 < 1e-12) { x[j] += (Math.random() - .5) * 0.002; y[j] += (Math.random() - .5) * 0.002; continue; }
+            const d = Math.sqrt(d2), m = (s - d) / d * K;
+            let wi = 0.5, wj = 0.5;
+            if (tt === 1) { if (ti === 1) { wi = 0.2; wj = 0.8; } else { wi = 0.8; wj = 0.2; } }
+            x[i] -= dx * m * wi; y[i] -= dy * m * wi; x[j] += dx * m * wj; y[j] += dy * m * wj;
+          }
+        }
+      }
+    }
+  }
+  step(pour, px, py, vx, vy, dt) {
+    const sp = Math.hypot(vx, vy), { x, y } = this;
+    // each new pour (and each swing of a wiggle) is its own layer, so a thin crema edge shows between them
+    if (pour && !this.wasPour) { if (sp < 0.5) this.batch++; this.bt = 0; }
+    if (pour && Math.abs(vx) > 0.9) { const sg = Math.sign(vx); if (this.sg && sg !== this.sg && this.bt > 0.15) { this.batch++; this.bt = 0; } this.sg = sg; }
+    if (pour) this.bt += dt; else this.sg = 0;
+    this.wasPour = pour;
+    if (pour) this.hot = 50;
+    if (this.hot <= 0) return;   // settled: nothing moves until the next pour
+    this.hot--; this.ver++;
+    if (pour && px * px + py * py < 0.88) {
+      // a straight, quick stroke is a pull-through: baristas lift the pitcher, so less milk lands.
+      // a wiggle keeps full flow even though it moves fast.
+      this.evx = (this.evx || 0) * 0.9 + vx * 0.1; this.evy = (this.evy || 0) * 0.9 + vy * 0.1; this.esp = (this.esp || 0) * 0.9 + sp * 0.1;
+      const straight = this.esp > 0.05 ? Math.hypot(this.evx, this.evy) / this.esp : 0;
+      this.acc += dt * FLOW * (1 - 0.82 * straight * clamp01(sp / 0.8)) / (1 + sp * 0.3);
+      while (this.acc >= 1) {
+        this.acc -= 1;
+        const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.014;
+        this.add(px + Math.cos(a) * r, py + Math.sin(a) * r, 1);
+      }
+      {                                        // fresh milk pushes older foam outward, so it wraps into a crescent
+        const Rp = 0.24, Rp2 = Rp * Rp, cb = this.batch, push = 0.55 * dt / (1 + sp * 3);
+        for (let i = 0; i < this.n; i++) {
+          if (this.t[i] !== 1 || this.b[i] === cb) continue;
+          const dx = x[i] - px, dy = y[i] - py, d2 = dx * dx + dy * dy;
+          if (d2 < Rp2 && d2 > 1e-8) { const d = Math.sqrt(d2), f = (1 - d / Rp) * push / d; x[i] += dx * f; y[i] += dy * f; }
+        }
+      }
+      if (sp > 0.08) {                         // the stream drags foam along with it
+        const Rd = 0.07 + Math.min(0.11, sp * 0.075), Rd2 = Rd * Rd;
+        for (let i = 0; i < this.n; i++) {
+          const dx = x[i] - px, dy = y[i] - py, d2 = dx * dx + dy * dy;
+          if (d2 < Rd2) { const u = 1 - Math.sqrt(d2) / Rd, f = u * (0.4 + 0.6 * u) * SIM.DRAG; x[i] += vx * dt * f; y[i] += vy * dt * f; }
+        }
+      }
+    }
+    for (let it = 0; it < 2; it++) { this.grid(); this.solve(); }
+    const R = SIM.RIM;
+    for (let i = 0; i < this.n; i++) {
+      const r2 = x[i] * x[i] + y[i] * y[i];
+      if (r2 > R * R) { const s = R / Math.sqrt(r2); x[i] *= s; y[i] *= s; }
+    }
+  }
+  snapshot() { return { n: this.n, x: this.x.slice(0, this.n), y: this.y.slice(0, this.n), t: this.t.slice(0, this.n), b: this.b.slice(0, this.n) }; }
+}
+
+/* ---------- drawing helpers: a 3/4 view, lit from the top left ---------- */
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); }
+function ell(c, x, y, rx, ry) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); }
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function makeCanvas(size, scale = DPR) {
+  const c = document.createElement('canvas'); c.width = c.height = Math.max(1, Math.round(size * scale));
+  const x = c.getContext('2d'); x.setTransform(scale, 0, 0, scale, 0, 0); return [c, x];
+}
+// a soft-edged oval, for shadows, glows and splashes
+function softBlob(c, x, y, rx, ry, rgb, a, inner = 0) {
+  c.save(); c.translate(x, y); c.scale(1, ry / rx);
+  const g = c.createRadialGradient(0, 0, rx * inner, 0, 0, rx);
+  g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  c.fillStyle = g; circle(c, 0, 0, rx); c.fill(); c.restore();
+}
+const TILT = 0.70; // circles seen at an angle get squashed to this height
+const CUPS = {
+  coffee: { bodyL:'#F8E3DA', bodyD:'#ECCABD', bodyDD:'#D9AC9C', saucerL:'#FFFBF7', saucerD:'#E3CBBD', band:'#F2B2A6', bandD:'#DB8C80', wall:'#E8DCD2', wallD:'#D5C4B6' },
+  matcha: { bodyL:'#E6F1DA', bodyD:'#CFE2BF', bodyDD:'#B2CDA0', saucerL:'#FBFEF7', saucerD:'#D4E4C6', band:'#A6C98F', bandD:'#86AE6F', wall:'#DFE8D5', wallD:'#C9D7BC' },
+};
+// every size comes from the drink radius R, so thumbnails and the stage match
+function geo(s) {
+  const R = s * 0.29, cx = s / 2, cy = s * 0.40;
+  return { s, R, cx, cy, K: TILT, lc: cy + R * 0.07,
+           rimO: R * 1.13, rimI: R * 1.045, baseY: cy + R * 0.70, baseR: R * 0.80, sY: cy + R * 0.82, sR: R * 1.56 };
+}
+const toScreen = (g, u, v) => [g.cx + u * g.R, g.lc + v * g.R * g.K];
+
+/* ---------- pixel art ----------
+   Every scene is drawn small with ordinary canvas shapes, then snapped to a fixed
+   palette and scaled up with hard edges. Cup, saucer and pitcher get a 1px outline. */
+const PX_STAGE = 144;         // the game stage is 144 x 144 pixels
+const OUTLINE = '#4A3529', PAGE_BG = '#FAF7F3', TABLE_SHADOW = '#EDE3D8';
+const COMMON_COLORS = [OUTLINE, PAGE_BG, TABLE_SHADOW, '#E0D2C4', '#FFFFFF', PINK, '#D97B90', '#6B4E8A',
+  '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8', '#6E6889', '#FFFCF5', '#EFE6D6', '#DCCDB8'];
+const MODE_COLORS = {
+  coffee: ['#FFF6F1', '#F8E3DA', '#ECCABD', '#D9AC9C', '#F2B2A6', '#DB8C80', '#FFFBF7', '#F3E3D9', '#E3CBBD', '#E8DCD2', '#D5C4B6',
+           '#DDA672', '#C88A55', '#AE6F42', '#905533', '#6E3D22', '#55301B', '#FFF9F0', '#F2E1CB', '#B57A48', '#E6B783'],
+  matcha: ['#F7FCF2', '#E6F1DA', '#CFE2BF', '#B2CDA0', '#A6C98F', '#86AE6F', '#FBFEF7', '#E9F2DF', '#D4E4C6', '#DFE8D5', '#C9D7BC',
+           '#DCEDB8', '#C2DA97', '#A8C97C', '#8DB463', '#729A4B', '#5A7D38', '#FDFDF6', '#EAEFD8', '#91B56B', '#D7E9B5'],
+};
+const palCache = {};
+function palette(mode) {
+  if (!palCache[mode]) palCache[mode] = { cols: [...COMMON_COLORS, ...MODE_COLORS[mode]].map(hex), map: new Map() };
+  return palCache[mode];
+}
+// snap every pixel to the nearest palette color
+function quantize(x, P, mode, soft = false) {
+  const { cols, map } = palette(mode);
+  if (map.size > 150000) map.clear();
+  const im = x.getImageData(0, 0, P, P), d = im.data;
+  for (let o = 0; o < d.length; o += 4) {
+    const al = d[o + 3];
+    if (soft && al === 0) continue;
+    const key = d[o] << 16 | d[o + 1] << 8 | d[o + 2];
+    let k = map.get(key);
+    if (k === undefined) {
+      let best = 1e9;
+      for (let i = 0; i < cols.length; i++) {
+        const c = cols[i], dr = d[o] - c[0], dg = d[o + 1] - c[1], db = d[o + 2] - c[2], e = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+        if (e < best) { best = e; k = i; }
+      }
+      map.set(key, k);
+    }
+    const c = cols[k]; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = soft && al < 128 ? al : 255;
+  }
+  x.putImageData(im, 0, 0);
+}
+const pxBufs = new Map();
+function pxBuf(P, tag) {
+  const k = P + tag;
+  if (!pxBufs.has(k)) { const c = document.createElement('canvas'); c.width = c.height = P; pxBufs.set(k, { c, x: c.getContext('2d', { willReadFrequently: true }) }); }
+  return pxBufs.get(k);
+}
+// draw into a scratch layer, then give it hard edges and a 1px dark outline
+function outlined(P, draw) {
+  const { c, x } = pxBuf(P, 'layer');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, P, P); draw(x);
+  const im = x.getImageData(0, 0, P, P), d = im.data, n = P * P, on = new Uint8Array(n), O = hex(OUTLINE);
+  for (let i = 0; i < n; i++) on[i] = d[i * 4 + 3] >= 100 ? 1 : 0;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (on[i]) { d[o + 3] = 255; continue; }
+    const xx = i % P, yy = (i / P) | 0;
+    if ((xx > 0 && on[i - 1]) || (xx < P - 1 && on[i + 1]) || (yy > 0 && on[i - P]) || (yy < P - 1 && on[i + P])) {
+      d[o] = O[0]; d[o + 1] = O[1]; d[o + 2] = O[2]; d[o + 3] = 255;
+    } else d[o + 3] = 0;
+  }
+  x.putImageData(im, 0, 0);
+  return c;
+}
+const lw = (R, f) => Math.max(1, R * f);
+
+function drawSaucer(b, g, mode) {
+  const { R, cx, K } = g, C = CUPS[mode];
+  b.fillStyle = C.saucerD; ell(b, cx, g.sY + R * 0.075, g.sR, g.sR * K); b.fill();
+  let gr = b.createLinearGradient(cx - g.sR, g.sY - g.sR * K, cx + g.sR, g.sY + g.sR * K);
+  gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.45, C.saucerL); gr.addColorStop(1, C.saucerD);
+  b.fillStyle = gr; ell(b, cx, g.sY, g.sR, g.sR * K); b.fill();
+  b.fillStyle = C.saucerD; ell(b, cx, g.sY + R * 0.02, R * 1.02, R * 1.02 * K); b.fill();
+  b.fillStyle = C.saucerL; ell(b, cx, g.sY + R * 0.06, R * 0.98, R * 0.98 * K); b.fill();
+  b.strokeStyle = '#FFFFFF'; b.lineWidth = lw(R, 0.03);
+  b.beginPath(); b.ellipse(cx, g.sY, g.sR * 0.94, g.sR * K * 0.94, 0, Math.PI * 1.08, Math.PI * 1.55); b.stroke();
+  softBlob(b, cx + R * 0.10, g.baseY + R * 0.06, g.baseR * 1.3, g.baseR * K * 1.3, '90,60,40', 0.30, 0.35);
+}
+function drawCupBody(b, g, mode) {
+  const { R, cx, cy, K } = g, C = CUPS[mode], pal = PAL[mode];
+  let gr;
+  // handle
+  const hx = cx + R * 1.17, hy = cy + R * 0.32;
+  b.strokeStyle = C.bodyD; b.lineWidth = R * 0.12; ell(b, hx, hy, R * 0.29, R * 0.25); b.stroke();
+  b.strokeStyle = C.bodyL; b.lineWidth = lw(R, 0.04);
+  b.beginPath(); b.ellipse(hx, hy, R * 0.30, R * 0.26, 0, Math.PI * 1.25, Math.PI * 1.85); b.stroke();
+  // body
+  const body = () => {
+    b.beginPath(); b.moveTo(cx - g.rimO, cy);
+    b.bezierCurveTo(cx - g.rimO, cy + R * 0.42, cx - g.baseR * 1.06, g.baseY - R * 0.06, cx - g.baseR, g.baseY);
+    b.ellipse(cx, g.baseY, g.baseR, g.baseR * K, 0, Math.PI, 0, true);
+    b.bezierCurveTo(cx + g.baseR * 1.06, g.baseY - R * 0.06, cx + g.rimO, cy + R * 0.42, cx + g.rimO, cy);
+    b.ellipse(cx, cy, g.rimO, g.rimO * K, 0, 0, Math.PI, true); b.closePath();
+  };
+  gr = b.createLinearGradient(cx - g.rimO, 0, cx + g.rimO, 0);
+  gr.addColorStop(0, C.bodyD); gr.addColorStop(0.2, C.bodyL); gr.addColorStop(0.42, '#FFFFFF');
+  gr.addColorStop(0.72, C.bodyL); gr.addColorStop(0.9, C.bodyD); gr.addColorStop(1, C.bodyDD);
+  b.fillStyle = gr; body(); b.fill();
+  b.save(); body(); b.clip();
+  b.strokeStyle = C.band; b.lineWidth = lw(R, 0.07);
+  b.beginPath(); b.ellipse(cx, cy + R * 0.30, g.rimO * 0.985, g.rimO * K * 0.985, 0, 0, Math.PI); b.stroke();
+  b.strokeStyle = C.bandD; b.lineWidth = 1;
+  b.beginPath(); b.ellipse(cx, cy + R * 0.42, g.rimO * 0.95, g.rimO * K * 0.95, 0, 0, Math.PI); b.stroke();
+  b.restore();
+  b.strokeStyle = '#FFFFFF'; b.lineWidth = lw(R, 0.05);
+  b.beginPath(); b.moveTo(cx - g.rimO * 0.78, cy + R * 0.22);
+  b.quadraticCurveTo(cx - g.rimO * 0.84, cy + R * 0.45, cx - g.baseR * 0.80, g.baseY - R * 0.10); b.stroke();
+  // rim lip, with a darker line where it turns down into the body
+  b.fillStyle = '#FFFFFF'; ell(b, cx, cy, g.rimO, g.rimO * K); b.fill();
+  b.strokeStyle = C.bodyD; b.lineWidth = 1;
+  b.beginPath(); b.ellipse(cx, cy, g.rimO - 0.5, g.rimO * K - 0.5, 0, 0.15, Math.PI - 0.15); b.stroke();
+  // inner wall
+  gr = b.createLinearGradient(0, cy - g.rimI * K, 0, cy + g.rimI * K * 0.4);
+  gr.addColorStop(0, C.wallD); gr.addColorStop(0.5, C.wall); gr.addColorStop(1, '#FFFFFF');
+  b.fillStyle = gr; ell(b, cx, cy, g.rimI, g.rimI * K); b.fill();
+  // the drink, with a few crema flecks
+  b.save(); ell(b, cx, cy, g.rimI, g.rimI * K); b.clip();
+  b.translate(cx, g.lc); b.scale(1, K);
+  gr = b.createRadialGradient(-R * 0.25, -R * 0.3, R * 0.05, 0, 0, R);
+  gr.addColorStop(0, pal.c0); gr.addColorStop(0.5, pal.c1); gr.addColorStop(1, pal.c2);
+  b.fillStyle = gr; circle(b, 0, 0, R); b.fill();
+  const r = rng(11);
+  for (let i = 0; i < 40; i++) {
+    const a = r() * TAU, d = Math.sqrt(r()) * R * 0.92;
+    b.fillStyle = r() < 0.5 ? pal.flecky : pal.spotty;
+    b.fillRect(Math.round(Math.cos(a) * d), Math.round(Math.sin(a) * d), 1 + (r() < 0.3), 1);
+  }
+  b.restore();
+  b.strokeStyle = C.wallD; b.lineWidth = 1;
+  b.beginPath(); b.ellipse(cx, cy, g.rimI, g.rimI * K, 0, Math.PI, TAU); b.stroke();
+}
+function drawFront(t, g, mode) {
+  const { R, cx, cy, K } = g, pal = PAL[mode];
+  t.save(); ell(t, cx, cy, g.rimI, g.rimI * K); t.clip(); ell(t, cx, g.lc, R, R * K); t.clip();
+  t.translate(cx, g.lc); t.scale(1, K);
+  const gr = t.createRadialGradient(0, 0, R * 0.84, 0, 0, R);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, pal.rim);
+  t.fillStyle = gr; circle(t, 0, 0, R); t.fill();
+  // window glint: a little stack of white pixels
+  t.fillStyle = 'rgba(255,255,255,.85)';
+  t.fillRect(Math.round(-R * 0.62), Math.round(-R * 0.62), Math.max(2, Math.round(R * 0.16)), Math.max(1, Math.round(R * 0.05)));
+  t.fillRect(Math.round(-R * 0.70), Math.round(-R * 0.54), Math.max(1, Math.round(R * 0.06)), Math.max(1, Math.round(R * 0.05)));
+  t.restore();
+  t.strokeStyle = '#FFFFFF'; t.lineWidth = 1;
+  t.beginPath(); t.ellipse(cx, cy, (g.rimO + g.rimI) / 2, (g.rimO + g.rimI) / 2 * K, 0, Math.PI * 1.08, Math.PI * 1.5); t.stroke();
+}
+const pxCache = new Map();
+function pxStatic(P, mode, bg = PAGE_BG) {
+  const key = 'back' + P + mode + bg;
+  if (!pxCache.has(key)) {
+    const g = geo(P), c = document.createElement('canvas'); c.width = c.height = P;
+    const x = c.getContext('2d');
+    if (bg) { x.fillStyle = bg; x.fillRect(0, 0, P, P); }
+    x.fillStyle = bg ? TABLE_SHADOW : 'rgba(25,12,5,.38)'; ell(x, g.cx + g.R * 0.12, g.sY + g.R * 0.16, g.sR * 0.99, g.sR * g.K * 1.02); x.fill();
+    x.drawImage(outlined(P, c2 => drawSaucer(c2, g, mode)), 0, 0);
+    x.drawImage(outlined(P, c2 => drawCupBody(c2, g, mode)), 0, 0);
+    pxCache.set(key, c);
+  }
+  return pxCache.get(key);
+}
+function pxFront(P, mode) {
+  const key = 'front' + P + mode;
+  if (!pxCache.has(key)) {
+    const c = document.createElement('canvas'); c.width = c.height = P;
+    drawFront(c.getContext('2d'), geo(P), mode); pxCache.set(key, c);
+  }
+  return pxCache.get(key);
+}
+// Draw a scene onto a visible canvas. The cup, saucer, pitcher and guides are pixel art,
+// scaled up with hard edges; the milk is painted between them at screen resolution,
+// so it keeps soft edges and gradients.
+function present(target, P, mode, foam, extra, bg) {
+  const g = geo(P), { c, x } = pxBuf(P, 'frame'), t = target.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.clearRect(0, 0, P, P);
+  x.drawImage(pxStatic(P, mode, bg || null), 0, 0);
+  x.drawImage(pxFront(P, mode), 0, 0);
+  quantize(x, P, mode, !bg);
+  t.setTransform(1, 0, 0, 1, 0, 0); t.imageSmoothingEnabled = false;
+  if (!bg) t.clearRect(0, 0, target.width, target.height);
+  t.drawImage(c, 0, 0, target.width, target.height);
+  if (foam) {
+    t.save(); t.scale(target.width / P, target.height / P);
+    drawSurface(t, P, foam, mode, target.width);
+    t.restore();
+  }
+  if (extra) {
+    const top = pxBuf(P, 'top');
+    top.x.setTransform(1, 0, 0, 1, 0, 0); top.x.globalAlpha = 1; top.x.clearRect(0, 0, P, P);
+    extra(top.x, g);
+    quantize(top.x, P, mode, true);
+    t.imageSmoothingEnabled = false;
+    t.drawImage(top.c, 0, 0, target.width, target.height);
+  }
+}
+// size a visible canvas so each art pixel is a whole number of screen pixels
+function fitCanvas(cv, P, avail) {
+  const dev = Math.max(1, Math.floor(avail * DPR / P));
+  cv.width = cv.height = P * dev;
+  cv.style.width = cv.style.height = (P * dev / DPR) + 'px';
+  return P * dev / DPR;
+}
+
+// The foam is drawn as a smooth liquid field, not as particles.
+// Each particle is splatted as a soft bump; where the bumps add up past a threshold
+// there is foam, with a soft edge. Where an older and newer pour meet, the layer
+// value changes quickly, and that change is drawn as a thin crema line.
+const bufCache = new Map();
+function surfBufs(N) {
+  if (!bufCache.has(N)) {
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    bufCache.set(N, { N, c, x: c.getContext('2d'), img: c.getContext('2d').createImageData(N, N),
+      D: new Float32Array(N * N), Bw: new Float32Array(N * N), C: new Float32Array(N * N),
+      Ds: new Float32Array(N * N), Dl: new Float32Array(N * N), tmp: new Float32Array(N * N), foam: null, key: '' });
+  }
+  return bufCache.get(N);
+}
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function splat(grid, N, px, py, h, val, out2) {
+  const cell = 2 / N, gx = (px + 1) / cell, gy = (py + 1) / cell, rc = h / cell, h2 = h * h;
+  const x0 = Math.max(0, Math.floor(gx - rc)), x1 = Math.min(N - 1, Math.ceil(gx + rc));
+  const y0 = Math.max(0, Math.floor(gy - rc)), y1 = Math.min(N - 1, Math.ceil(gy + rc));
+  for (let j = y0; j <= y1; j++) {
+    const dy = (j + 0.5) * cell - 1 - py;
+    for (let i = x0; i <= x1; i++) {
+      const dx = (i + 0.5) * cell - 1 - px, d2 = dx * dx + dy * dy;
+      if (d2 >= h2) continue;
+      const q = 1 - d2 / h2, w = q * q, k = j * N + i;
+      grid[k] += w; if (out2) out2[k] += w * val;
+    }
+  }
+}
+const FOAM_H = 0.062, FOAM_I = 1283 * Math.PI * FOAM_H * FOAM_H / 3; // blend radius, and the field value inside packed foam
+// box blur, run twice so it softens like a gaussian
+function blurField(src, out, tmp, N, r) {
+  const pass = (a, b, step, stride) => {
+    for (let line = 0; line < N; line++) {
+      const base = line * stride;
+      let sum = 0;
+      for (let i = -r; i <= r; i++) sum += a[base + Math.min(N - 1, Math.max(0, i)) * step];
+      for (let i = 0; i < N; i++) {
+        b[base + i * step] = sum / (2 * r + 1);
+        sum += a[base + Math.min(N - 1, i + r + 1) * step] - a[base + Math.max(0, i - r) * step];
+      }
+    }
+  };
+  pass(src, tmp, 1, N); pass(tmp, out, N, 1); pass(out, tmp, 1, N); pass(tmp, out, N, 1);
+}
+const sstep = (a, b, v) => { const t = v <= a ? 0 : v >= b ? 1 : (v - a) / (b - a); return t * t * (3 - 2 * t); };
+function paintSurface(B, foam, pal) {
+  const { N, D, Bw, C, Ds, Dl, tmp, img } = B, { x, y, t, b, n } = foam;
+  D.fill(0); Bw.fill(0); C.fill(0);
+  for (let i = 0; i < n; i++) {
+    if (t[i] === 1) splat(D, N, x[i], y[i], FOAM_H, b[i], Bw);
+    else splat(C, N, x[i], y[i], 0.042, 0, null);
+  }
+  // a lightly softened field gives the foam its outline, a much softer one shapes the light
+  blurField(D, Ds, tmp, N, Math.max(1, Math.round(N * 0.008)));
+  blurField(D, Dl, tmp, N, Math.max(2, Math.round(N * 0.03)));
+  const F = hex(pal.foam), FE = hex(pal.foamEdge), SH = hex(pal.foamShade), L = hex(pal.line), H = hex(pal.haloC), K = hex(pal.dark);
+  const px = img.data, cell = 2 / N, I = FOAM_I;
+  const sh = Math.max(1, Math.round(N * 0.014)), slopeK = 1 / (2 * cell * 4 * I);
+  for (let j = 0; j < N; j++) {
+    const v = (j + 0.5) * cell - 1;
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) * cell - 1, k = j * N + i, o = k * 4, r2 = u * u + v * v;
+      if (r2 > 1) { px[o + 3] = 0; continue; }
+      const d = Ds[k], inner = i > 0 && j > 0 && i < N - 1 && j < N - 1;
+      // crema darkens where the foam has pushed it into a bunch, and under the foam's lower-right edge
+      const drop = i >= sh && j >= sh ? sstep(0.3 * I, 0.7 * I, Ds[k - sh - sh * N]) * 0.20 : 0;
+      let r = K[0], g = K[1], bl = K[2], a = Math.min(0.45, sstep(3.2, 7, C[k]) * 0.22 + drop);
+      // a warm, lighter ring of crema hugging the foam
+      const halo = sstep(0.04 * I, 0.40 * I, d) * 0.72;
+      if (halo > 0) { const f = halo / Math.max(a + halo, 1e-6); r = lerp(r, H[0], f); g = lerp(g, H[1], f); bl = lerp(bl, H[2], f); a = a + halo * (1 - a); }
+      const fa = sstep(0.40 * I, 0.54 * I, d);
+      if (fa > 0) {
+        // the foam is a dome: creamy at its edges, bright in the middle
+        const dome = sstep(0.45 * I, 0.95 * I, Dl[k]);
+        let fr = lerp(FE[0], F[0], dome), fg = lerp(FE[1], F[1], dome), fb = lerp(FE[2], F[2], dome);
+        if (inner) {
+          // light from the upper left: slopes facing it brighten, slopes facing away fall into shade
+          const gx = Dl[k + 1] - Dl[k - 1], gy = Dl[k + N] - Dl[k - N];
+          const lit = Math.max(-1, Math.min(1, (0.55 * gx + 0.75 * gy) * slopeK));
+          if (lit < 0) { const f = -lit * 0.6; fr = lerp(fr, SH[0], f); fg = lerp(fg, SH[1], f); fb = lerp(fb, SH[2], f); }
+          else { const f = lit * 0.7; fr = lerp(fr, 255, f); fg = lerp(fg, 255, f); fb = lerp(fb, 255, f); }
+          if (d > 0.2 * I) {
+            // where an older and a newer pour meet, a thin crema line
+            const bv = kk => D[kk] > 0.1 * I ? Bw[kk] / D[kk] : Bw[k] / Math.max(D[k], 1e-6);
+            const lx = bv(k + 1) - bv(k - 1), ly = bv(k + N) - bv(k - N);
+            const line = sstep(9, 20, Math.sqrt(lx * lx + ly * ly) / (2 * cell)) * 0.85;
+            fr = lerp(fr, L[0], line); fg = lerp(fg, L[1], line); fb = lerp(fb, L[2], line);
+          }
+        }
+        // foam near the cup wall sits a little in the wall's shadow
+        const wall = sstep(0.72, 1, r2) * 0.35;
+        fr = lerp(fr, SH[0], wall); fg = lerp(fg, SH[1], wall); fb = lerp(fb, SH[2], wall);
+        r = lerp(r, fr, fa); g = lerp(g, fg, fa); bl = lerp(bl, fb, fa); a = a + fa * (1 - a);
+      }
+      px[o] = r; px[o + 1] = g; px[o + 2] = bl; px[o + 3] = a * 255;
+    }
+  }
+  B.x.putImageData(img, 0, 0);
+}
+// size is the pixel scene; outPx is how wide it ends up on screen, which sets the foam resolution
+function drawSurface(ctx, size, foam, mode, outPx) {
+  const g = geo(size), N = Math.max(64, Math.min(220, Math.round(g.R / size * outPx * 1.3)));
+  const B = surfBufs(N), key = mode + '|' + (foam.ver || 0);
+  if (B.foam !== foam || B.key !== key) { paintSurface(B, foam, PAL[mode]); B.foam = foam; B.key = key; }
+  ctx.save(); ell(ctx, g.cx, g.cy, g.rimI, g.rimI * g.K); ctx.clip();
+  ctx.translate(g.cx, g.lc); ctx.scale(1, g.K);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(B.c, -g.R, -g.R, g.R * 2, g.R * 2);
+  ctx.restore();
+}
+
+// steam curls drifting up from the cup
+function drawSteam(ctx, g, time, alpha = 1) {
+  const { R, cx, cy } = g;
+  ctx.save(); ctx.lineCap = 'butt';
+  for (let k = 0; k < 3; k++) {
+    const bx = cx + (k - 1) * R * 0.38, by = cy - R * 0.15, h = R * (0.7 + k % 2 * 0.2), ph = Math.floor(time / 140) / 6 + k * 2.1;
+    const gr = ctx.createLinearGradient(0, by, 0, by - h);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.35, `rgba(255,255,255,${0.9 * alpha})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = gr; ctx.lineWidth = Math.max(2, R * 0.06);
+    ctx.beginPath();
+    for (let j = 0; j <= 12; j++) {
+      const f = j / 12, px = bx + Math.sin(ph + f * 5) * R * 0.08 * (0.3 + f), py = by - f * h;
+      j ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// the milk pitcher, held above the cup; the milk lands at (u, v)
+const STEEL = ['#8E88A8', '#DCD9E8', '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8'];
+// what sits on the drink under the pitcher: its shadow, and the splash or landing marker
+function drawPitcherUnder(ctx, g, u, v, pouring, time) {
+  const { R, K } = g, [lx, ly] = toScreen(g, u, v);
+  ctx.fillStyle = `rgba(60,35,20,${pouring ? 0.30 : 0.18})`;
+  ell(ctx, lx + R * 0.48, ly + R * 0.12, R * (pouring ? 0.42 : 0.5), R * (pouring ? 0.42 : 0.5) * K); ctx.fill();
+  if (pouring) {
+    ctx.fillStyle = '#FFFCF5'; ell(ctx, lx, ly, R * 0.09, R * 0.09 * K); ctx.fill();
+    const ph = Math.floor(time / 120) % 4 / 4;
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(lx, ly, R * (0.12 + ph * 0.10), R * (0.12 + ph * 0.10) * K, 0, 0, TAU); ctx.stroke();
+  } else {
+    ctx.fillStyle = '#FFFFFF';
+    const H = R * 0.50, X = Math.round(lx);
+    for (let yy = Math.round(ly - H + R * 0.06); yy < ly - 2; yy += 3) ctx.fillRect(X, yy, 1, 1);
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(lx, ly, R * 0.07, R * 0.07 * K, 0, 0, TAU); ctx.stroke();
+    ctx.fillRect(X, Math.round(ly), 1, 1);
+  }
+}
+// the stream and the pitcher itself, drawn into an outlined layer
+function drawPitcherBody(ctx, g, u, v, pouring) {
+  const { R } = g, [lx, ly] = toScreen(g, u, v);
+  const H = pouring ? R * 0.22 : R * 0.50, tx = lx, ty = ly - H;
+  if (pouring) {
+    const w1 = Math.max(2, R * 0.06), w2 = Math.max(2, R * 0.04);
+    ctx.fillStyle = '#FFFCF5'; ctx.beginPath();
+    ctx.moveTo(tx - w1 / 2, ty); ctx.lineTo(lx - w2 / 2, ly); ctx.lineTo(lx + w2 / 2, ly); ctx.lineTo(tx + w1 / 2, ty); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#EFE6D6'; ctx.fillRect(Math.round(tx + w2 / 2 - 1), Math.round(ty), 1, Math.round(H));
+  }
+  ctx.save(); ctx.translate(tx, ty); ctx.rotate(pouring ? -0.40 : -0.12);
+  const bx = R * 0.66, rt = R * 0.33, rb = R * 0.41, top = -R * 0.12, bot = R * 0.56, e = 0.42;
+  // handle
+  ctx.strokeStyle = STEEL[4]; ctx.lineWidth = R * 0.10; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(bx + rt * 0.8, top + R * 0.05);
+  ctx.bezierCurveTo(bx + rt + R * 0.40, top - R * 0.04, bx + rb + R * 0.34, bot - R * 0.02, bx + rb * 0.92, bot - R * 0.14); ctx.stroke();
+  // body: a cone, wider at the bottom, with flat bands of steel shading
+  let gr = ctx.createLinearGradient(bx - rb, 0, bx + rb, 0);
+  STEEL.forEach((c, k) => gr.addColorStop(k / (STEEL.length - 1), c));
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(bx - rt, top); ctx.lineTo(bx - rb, bot);
+  ctx.ellipse(bx, bot, rb, rb * e, 0, Math.PI, 0, true); ctx.lineTo(bx + rt, top);
+  ctx.ellipse(bx, top, rt, rt * e, 0, 0, Math.PI, true); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath();
+  ctx.moveTo(bx - rt * 0.55, top + R * 0.08); ctx.lineTo(bx - rt * 0.38, top + R * 0.08);
+  ctx.lineTo(bx - rb * 0.45, bot - R * 0.04); ctx.lineTo(bx - rb * 0.62, bot - R * 0.04); ctx.closePath(); ctx.fill();
+  // spout
+  ctx.fillStyle = STEEL[1]; ctx.beginPath();
+  ctx.moveTo(bx - rt * 0.80, top - rt * e * 0.70);
+  ctx.quadraticCurveTo(bx - rt - R * 0.16, top - R * 0.05, 0, 0);
+  ctx.quadraticCurveTo(bx - rt - R * 0.06, top + R * 0.09, bx - rt * 0.70, top + rt * e * 0.85);
+  ctx.closePath(); ctx.fill();
+  // rim and the milk inside
+  ctx.fillStyle = STEEL[2]; ell(ctx, bx, top, rt, rt * e); ctx.fill();
+  ctx.fillStyle = '#EFE6D6'; ell(ctx, bx, top + rt * e * 0.06, rt * 0.86, rt * e * 0.80); ctx.fill();
+  ctx.fillStyle = '#FFFCF5'; ell(ctx, bx + rt * 0.08, top + rt * e * 0.2, rt * 0.70, rt * e * 0.58); ctx.fill();
+  if (pouring) {
+    ctx.strokeStyle = '#FFFCF5'; ctx.lineWidth = Math.max(2, R * 0.05);
+    ctx.beginPath(); ctx.moveTo(bx - rt * 0.65, top); ctx.quadraticCurveTo(bx - rt - R * 0.08, top + R * 0.02, R * 0.01, 0); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---------- storage ---------- */
+const KEY = 'littlepour.v1';
+function freshState() {
+  return { mode:'coffee', difficulty:'medium', diffBy:'you', placed:null, recommended:0,
+           guide:{}, hist:{}, best:{}, notebook:[], nbSeen:0, visits:0 };
+}
+let S = freshState();
+function load() { try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(freshState(), JSON.parse(raw)); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ---------- the learning part: every change is logged and can be undone ---------- */
+function setChange(ch, val) {
+  if (ch.type === 'recommended') S.recommended = val;
+  else if (ch.type === 'difficulty') { S.difficulty = val; S.diffBy = 'coach'; }
+  else if (ch.type === 'guide') S.guide[ch.pattern] = val;
+  else if (ch.type === 'placement') { const v = clone(val); S.placed = v.placed; S.recommended = v.recommended; S.guide = v.guide; S.difficulty = v.difficulty; S.diffBy = v.placed === null ? 'you' : 'coach'; }
+  save();
+}
+function addEntry(text, why, ch) {
+  const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(), text, why, ch, undone: false };
+  setChange(ch, ch.to); S.notebook.unshift(e); save(); return e;
+}
+function toggleEntry(id) {
+  const e = S.notebook.find(n => n.id === id); if (!e) return;
+  e.undone = !e.undone; setChange(e.ch, e.undone ? e.ch.from : e.ch.to); save();
+  toast(e.undone ? 'Undone. Back to how it was.' : 'Change put back.');
+}
+const pname = i => PATTERNS[i].name;
+const placementState = () => ({ placed: S.placed, recommended: S.recommended, guide: clone(S.guide), difficulty: S.difficulty });
+
+function coachPlacement(claimed, score) {
+  let placed = claimed, rec = claimed, text;
+  if (score >= 75) { rec = score >= 88 ? Math.min(claimed + 1, PATTERNS.length - 1) : claimed; }
+  else if (score < 50) { placed = Math.max(0, claimed - 1); rec = placed; }
+  const guide = {};
+  PATTERNS.forEach((p, i) => guide[p.id] = i < placed ? 2 : i === placed ? (score >= 75 ? 1 : 0) : 0);
+  const difficulty = score >= 85 ? 'hard' : score >= 55 ? 'medium' : 'easy';
+  const c = pname(claimed);
+  if (score >= 75) text = `Your ${c} scored ${score}, so you're placed at ${c}.` + (rec > claimed ? ` ${pname(rec)} is up next.` : '');
+  else if (score >= 50) text = `Your ${c} scored ${score}. You're placed at ${c}, with the full guide on while you practice it.`;
+  else text = placed === claimed ? `Your ${c} scored ${score}. You're starting at ${c} with the full guide and Easy timing.`
+                                 : `Your ${c} scored ${score}, so you're starting one step back at ${pname(placed)}.`;
+  const why = `Placement pour on Medium. Difficulty set to ${DIFF[difficulty].name}.`;
+  return [addEntry(text, why, { type:'placement', from: placementState(), to: { placed, recommended: rec, guide, difficulty } })];
+}
+function coachFree(i, score) {
+  const p = PATTERNS[i], out = [], h = S.hist[p.id] || [], last2 = h.slice(-2), g = S.guide[p.id] || 0;
+  if (score >= 70 && g < 2)
+    out.push(addEntry(`Your ${p.name} is getting steady, so its guide line is ${GUIDE_NAMES[g + 1]} now.`,
+      `You scored ${score} pouring it on your own.`, { type:'guide', pattern: p.id, from: g, to: g + 1 }));
+  if (i === S.recommended && i < PATTERNS.length - 1 && ((last2.length === 2 && last2.every(v => v >= 75)) || score >= 90))
+    out.push(addEntry(`${pname(i + 1)} is up next for you.`,
+      last2.length === 2 ? `Your last two ${p.name} pours scored ${last2.join(' and ')}.` : `You scored ${score} on ${p.name}.`,
+      { type:'recommended', from: i, to: i + 1 }));
+  const di = DIFF_ORDER.indexOf(S.difficulty);
+  if (score >= 88 && di < 2)
+    out.push(addEntry(`Moved you up to ${DIFF[DIFF_ORDER[di + 1]].name}: less time and a tighter path.`,
+      `You scored ${score} on ${DIFF[S.difficulty].name}.`, { type:'difficulty', from: S.difficulty, to: DIFF_ORDER[di + 1] }));
+  if (last2.length === 2 && last2.every(v => v < 40)) {
+    if (g > 0) out.push(addEntry(`Brought more of the guide back for ${p.name}.`,
+      `Your last two pours scored ${last2.join(' and ')}.`, { type:'guide', pattern: p.id, from: g, to: g - 1 }));
+    if (di > 0) out.push(addEntry(`Eased you down to ${DIFF[DIFF_ORDER[di - 1]].name} for more time.`,
+      `Your last two ${p.name} pours scored ${last2.join(' and ')}.`, { type:'difficulty', from: S.difficulty, to: DIFF_ORDER[di - 1] }));
+  }
+  return out;
+}
+
+/* ---------- round state ---------- */
+const foam = new Foam();
+const stage = $('#stage');
+const view = { size: 500, active: false };
+let G = null;
+const aim = { x: 0.6, y: 0.75, tx: 0.6, ty: 0.75, px: 0.6, py: 0.75, vx: 0, vy: 0 };
+let wantPour = false, keyPour = false, ptrPour = false;
+
+function layout() {
+  const avail = Math.max(240, Math.min(window.innerWidth - 24, 680, window.innerHeight - 190));
+  view.size = fitCanvas(stage, PX_STAGE, avail);
+  setBarScale(view.size / PX_STAGE);
+}
+function startRound(i, kind) {
+  const p = PATTERNS[i], diff = kind === 'place' ? 'medium' : S.difficulty;
+  G = { i, p, kind, diff, tol: DIFF[diff].tol, limit: timeLimit(p, diff), phase: 'count', ct: 0, t: 0,
+        strokeI: 0, pourDur: 0, samples: [], pourTime: p.strokes.map(() => 0), prog: p.strokes.map(() => 0),
+        paceStart: p.strokes.map(() => null), doneAt: null, endT: 0, timeout: false,
+        guideStage: kind === 'guided' ? (S.guide[p.id] || 0) : -1 };
+  foam.reset();
+  if (document.activeElement) document.activeElement.blur();
+  $('#hud-name').textContent = p.name;
+  $('#hud-kind').textContent = kind === 'guided' ? `Guided · ${GUIDE_NAMES[G.guideStage]} guide` : kind === 'free' ? 'On your own' : 'Placement pour';
+  $('#hud-thumb').dataset.thumb = p.id;
+  show('game'); layout(); drawThumb($('#hud-thumb'));
+}
+function advanceStroke() {
+  G.strokeI++; G.pourDur = 0;
+  if (G.strokeI >= G.p.strokes.length && G.doneAt === null) G.doneAt = G.t;
+}
+function tick(dt) {
+  // the pitcher eases toward the pointer, which keeps tiny trackpad hiccups from looking jumpy
+  aim.x += (aim.tx - aim.x) * 0.55; aim.y += (aim.ty - aim.y) * 0.55;
+  const vx = (aim.x - aim.px) / dt, vy = (aim.y - aim.py) / dt;
+  aim.vx = aim.vx * 0.5 + vx * 0.5; aim.vy = aim.vy * 0.5 + vy * 0.5;
+  aim.px = aim.x; aim.py = aim.y;
+  if (!G) return;
+  let pouring = false;
+  if (G.phase === 'count') {
+    G.ct += dt; if (G.ct >= 2.4) G.phase = 'play';
+  } else if (G.phase === 'play') {
+    G.t += dt; pouring = wantPour;
+    const n = G.p.strokes.length;
+    if (pouring && G.strokeI < n) {
+      const k = G.strokeI, st = G.p.strokes[k];
+      if (G.paceStart[k] === null) G.paceStart[k] = G.t;
+      G.samples.push({ x: aim.x, y: aim.y, k, t: G.t });
+      G.pourTime[k] += dt; G.pourDur += dt;
+      if (st.kind === 'line') {
+        const q = nearest(st, aim.x, aim.y);
+        if (q.d < G.tol * 2.5 && q.f <= G.prog[k] + 0.2) G.prog[k] = Math.max(G.prog[k], q.f);
+        if (G.prog[k] >= 0.96) advanceStroke();
+      } else G.prog[k] = G.pourTime[k] / st.dur;
+    }
+    if (!pouring && G.pourDur > 0.15 && G.strokeI < n) advanceStroke();
+    if (!pouring && G.pourDur > 0) G.pourDur = 0;
+    if (G.doneAt !== null && ((!pouring && G.t - G.doneAt > 0.3) || G.t - G.doneAt > 1.2)) finishRound(false);
+    else if (G.t >= G.limit) finishRound(true);
+  }
+  G.pouringNow = pouring;
+  foam.step(pouring, aim.x, aim.y, aim.vx, aim.vy, dt);
+}
+function finishRound(timeout) {
+  G.phase = 'done'; G.timeout = timeout; G.endT = G.t;
+  G.result = scoreRound();
+  setTimeout(showResults, 900);
+}
+function scoreRound() {
+  const p = G.p, n = p.strokes.length, tol = G.tol;
+  let wsum = 0, acc = 0, std = 0, pace = 0;
+  p.strokes.forEach((st, k) => {
+    const S2 = G.samples.filter(s => s.k === k), w = Math.sqrt(st.dur) + 0.3; wsum += w;
+    if (S2.length < 4) return;
+    let sumD = 0, jit = 0, prev = null; const bins = new Uint8Array(16);
+    for (const s of S2) {
+      const q = nearest(st, s.x, s.y); sumD += q.d;
+      if (prev) jit += Math.hypot(q.vx - prev.vx, q.vy - prev.vy);
+      prev = q;
+      if (st.kind === 'line' && q.d < tol * 1.6) bins[Math.min(15, (q.f * 16) | 0)] = 1;
+    }
+    const aD = clamp01(1 - Math.max(0, sumD / S2.length - tol * 0.35) / (tol * 2.2));
+    const cov = st.kind === 'line' ? bins.reduce((a, b) => a + b, 0) / 16 : 1;
+    const a = st.kind === 'line' ? aD * 0.55 + cov * 0.45 : aD;
+    const s = clamp01(1 - Math.max(0, jit / (S2.length - 1) - 0.0025) / 0.012);
+    const r = Math.max(0.05, G.pourTime[k]) / st.dur;
+    const pc = clamp01(1 - Math.abs(Math.log(r)) / Math.log(2.6));
+    acc += a * w; std += s * w; pace += pc * w;
+  });
+  acc /= wsum; std /= wsum; pace /= wsum;
+  const finished = G.strokeI >= n && !G.timeout;
+  const time = finished ? 1 - 0.5 * clamp01((G.endT / G.limit - 0.65) / 0.35) : 0;
+  const total = Math.round(100 * (0.4 * acc + 0.25 * std + 0.2 * pace + 0.15 * time));
+  return { total, stars: total >= 85 ? 3 : total >= 65 ? 2 : total >= 45 ? 1 : 0, acc, std, pace, time, finished };
+}
+
+/* ---------- guide line ---------- */
+function drawGuide(ctx, size) {
+  const gm = geo(size), R = gm.R, stg = G.guideStage, P2 = v => toScreen(gm, v[0], v[1]);
+  const blink = Math.floor(performance.now() / 300) % 2; // pixel games blink instead of pulsing
+  const dot = (x, y, r) => ctx.fillRect(Math.round(x) - r, Math.round(y) - r, r * 2 + 1, r * 2 + 1);
+  ctx.save();
+  G.p.strokes.forEach((st, i) => {
+    if (i < G.strokeI) return;
+    const cur = i === G.strokeI;
+    if (!cur && stg > 0) return;
+    ctx.globalAlpha = cur ? 1 : 0.5;
+    const [sx, sy] = P2(st.start);
+    if (stg === 2) {
+      ctx.fillStyle = PINK; dot(sx, sy, blink);
+      if (st.kind === 'line') { const [ex, ey] = P2(st.end); dot(ex, ey, 0); }
+      return;
+    }
+    if (st.kind === 'line') {
+      ctx.beginPath(); st.pts.forEach((q, j) => { const [x, y] = P2(q); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.setLineDash([3, 2]); ctx.lineDashOffset = -Math.floor(performance.now() / 120);
+      ctx.strokeStyle = PINK; ctx.lineWidth = cur ? 1.5 : 1; ctx.stroke(); ctx.setLineDash([]);
+      if (cur && stg === 0) {
+        const a = st.pts[st.pts.length - 2], [ex, ey] = P2(st.end), [ax, ay] = P2(a), ang = Math.atan2(ey - ay, ex - ax);
+        ctx.fillStyle = PINK; ctx.beginPath();
+        ctx.moveTo(ex + Math.cos(ang) * 4, ey + Math.sin(ang) * 4);
+        ctx.lineTo(ex + Math.cos(ang + 2.4) * 4, ey + Math.sin(ang + 2.4) * 4);
+        ctx.lineTo(ex + Math.cos(ang - 2.4) * 4, ey + Math.sin(ang - 2.4) * 4); ctx.fill();
+        if (G.paceStart[i] !== null) {
+          const f = clamp01((G.t - G.paceStart[i]) / st.dur), [qx, qy] = P2(pointAt(st, f));
+          ctx.fillStyle = PINK; dot(qx, qy, 2); ctx.fillStyle = '#FFFFFF'; dot(qx, qy, 1);
+        }
+      }
+      if (cur) { ctx.fillStyle = PINK; dot(sx, sy, 1 + blink); }
+    } else {
+      const [ax, ay] = P2(st.at), r = st.blobR * R;
+      ctx.setLineDash([2, 2]); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+      ell(ctx, ax, ay, r, r * gm.K); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = PINK; dot(ax, ay, cur ? 1 + blink : 1);
+      if (cur && G.pourTime[i] > 0) {
+        const f = G.pourTime[i] / st.dur;
+        ctx.strokeStyle = f > 1.25 ? '#D97B90' : PINK; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(ax, ay, r + 3, (r + 3) * gm.K, 0, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, f)); ctx.stroke();
+      }
+    }
+  });
+  ctx.restore();
+}
+
+/* ---------- main loop ---------- */
+let last = performance.now(), accum = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!view.active) { heroFrame(dt, now); return; }
+  accum += dt; let steps = 0;
+  while (accum >= STEP && steps < 3) { tick(STEP); accum -= STEP; steps++; }
+  if (steps === 3) accum = 0;
+  draw();
+}
+function draw() {
+  const P = PX_STAGE, now = performance.now();
+  present(stage, P, S.mode, foam, (x, gm) => {
+    if (!G) return;
+    if (G.kind === 'guided' && G.phase !== 'done') drawGuide(x, P);
+    if (G.phase !== 'play') drawSteam(x, gm, now, G.phase === 'count' ? 0.8 : 0.6);
+    if (G.phase !== 'done') {
+      drawPitcherUnder(x, gm, aim.x, aim.y, !!G.pouringNow, now);
+      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, aim.x, aim.y, !!G.pouringNow)), 0, 0);
+    }
+  });
+  if (!G) return;
+  const left = G.phase === 'count' ? 1 : clamp01(1 - G.t / G.limit), bar = $('#tbar');
+  bar.style.width = (left * 100) + '%'; bar.classList.toggle('low', left < 0.25);
+  // HUD text
+  const remain = G.phase === 'count' ? G.limit : Math.max(0, G.limit - G.t);
+  const tEl = $('#hud-time'); tEl.textContent = remain.toFixed(1) + 's'; tEl.classList.toggle('low', remain < G.limit * 0.25);
+  const cnt = $('#count');
+  if (G.phase === 'count') cnt.textContent = G.ct < 0.7 ? '3' : G.ct < 1.4 ? '2' : G.ct < 2.1 ? '1' : 'Pour!';
+  else cnt.textContent = G.phase === 'play' && G.t < 0.5 ? 'Pour!' : '';
+  const n = G.p.strokes.length;
+  $('#hud-step').textContent = G.phase === 'done' ? (G.timeout ? 'Time!' : 'Nice. Let it settle…')
+    : G.strokeI < n ? (n > 1 ? `Step ${G.strokeI + 1} of ${n}: ` : '') + G.p.strokes[G.strokeI].label : 'Done, let go';
+}
+
+/* ---------- input ---------- */
+function toAim(e) {
+  const r = stage.getBoundingClientRect(), gm = geo(PX_STAGE), k = PX_STAGE / r.width;
+  let x = e.clientX - r.left, y = e.clientY - r.top;
+  if (e.pointerType === 'touch') y -= 46; // keep the landing spot out from under the finger
+  x *= k; y *= k;
+  aim.tx = (x - gm.cx) / gm.R; aim.ty = (y - gm.lc) / (gm.R * gm.K);
+}
+window.addEventListener('pointermove', e => { if (view.active) toAim(e); });
+stage.addEventListener('pointerdown', e => { toAim(e); ptrPour = true; wantPour = true; stage.setPointerCapture(e.pointerId); e.preventDefault(); });
+const ptrUp = () => { ptrPour = false; wantPour = keyPour; };
+stage.addEventListener('pointerup', ptrUp); stage.addEventListener('pointercancel', ptrUp);
+window.addEventListener('keydown', e => {
+  if (!view.active) return;
+  if (e.code === 'Space') { e.preventDefault(); keyPour = true; wantPour = true; }
+  if (e.code === 'Escape') leaveRound();
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') { keyPour = false; wantPour = ptrPour; } });
+window.addEventListener('blur', () => { keyPour = ptrPour = wantPour = false; });
+window.addEventListener('resize', () => { if (view.active) layout(); });
+function leaveRound() { G = null; wantPour = keyPour = ptrPour = false; show('menu'); }
+$('#btn-quit').addEventListener('click', () => S.placed === null && G && G.kind === 'place' ? (G = null, show('place')) : leaveRound());
+
+/* ---------- thumbnails: each one is the game's own sim, poured along the ideal path ---------- */
+const THUMBS = {};
+function idealPlan(p) {
+  const segs = []; let t = 0.25, prev = null;
+  p.strokes.forEach(st => {
+    if (prev) { segs.push({ move: true, from: prev, to: st.start, t0: t, t1: t + 0.35 }); t += 0.35; }
+    else segs.push({ move: true, from: st.start, to: st.start, t0: 0, t1: t });
+    segs.push({ st, t0: t, t1: t + st.dur }); t += st.dur; prev = st.end;
+  });
+  return { segs, total: t + 0.9 };
+}
+function idealAt(plan, t) {
+  for (const s of plan.segs) {
+    if (t > s.t1) continue;
+    const f = (t - s.t0) / (s.t1 - s.t0);
+    if (s.move) return { x: lerp(s.from[0], s.to[0], f), y: lerp(s.from[1], s.to[1], f), pour: false };
+    const q = pointAt(s.st, f); return { x: q[0], y: q[1], pour: true };
+  }
+  const e = plan.segs[plan.segs.length - 1]; const q = e.st ? e.st.end : e.to;
+  return { x: q[0], y: q[1], pour: false };
+}
+// background timers get throttled, message ports don't
+const later = fn => { const ch = new MessageChannel(); ch.port1.onmessage = () => fn(); ch.port2.postMessage(0); };
+function genThumbs() {
+  // the start screen's heart first, then the rest in ladder order
+  const order = [PATTERNS.find(p => p.id === 'heart'), ...PATTERNS.filter(p => p.id !== 'heart')];
+  const sim = new Foam();
+  const next = () => {
+    const p = order.shift(); if (!p) return;
+    sim.reset(); const plan = idealPlan(p); let t = 0, prev = idealAt(plan, 0);
+    const chunk = () => {
+      for (let k = 0; k < 60 && t < plan.total; k++) {
+        const cur = idealAt(plan, t + STEP);
+        sim.step(cur.pour, cur.x, cur.y, (cur.x - prev.x) / STEP, (cur.y - prev.y) / STEP, STEP);
+        prev = cur; t += STEP;
+      }
+      if (t < plan.total) later(chunk);
+      else { THUMBS[p.id] = sim.snapshot(); $$(`canvas[data-thumb="${p.id}"]`).forEach(cv => drawThumb(cv)); later(next); }
+    };
+    chunk();
+  };
+  next();
+}
+function drawThumb(cv, extra) {
+  const size = +cv.dataset.size || 120, id = cv.dataset.thumb, P = Math.round(size / (+cv.dataset.scale || 2));
+  if (!cv.dataset.fit || +cv.dataset.fit !== size) { fitCanvas(cv, P, size); cv.dataset.fit = size; }
+  present(cv, P, S.mode, THUMBS[id] || null, extra, sceneBg(cv));
+}
+// cups on cards and panels keep their paper; everywhere else they sit on the bar
+const sceneBg = cv => cv.closest('.card, .pick') ? '#FFFFFF' : cv.closest('.panel') ? PAGE_BG : null;
+const drawAllThumbs = () => $$('canvas[data-thumb]').forEach(cv => drawThumb(cv));
+
+/* ---------- screens ---------- */
+function show(id) {
+  $$('.screen').forEach(s => s.classList.toggle('active', s.id === 's-' + id));
+  view.active = id === 'game';
+  if (!view.active) setBarScale(4);
+  if (id === 'start') renderStart();
+  if (id === 'place') renderPlace();
+  if (id === 'menu') renderMenu();
+  drawAllThumbs();
+  window.scrollTo(0, 0);
+}
+function setMode(m) {
+  S.mode = m; save(); document.body.dataset.mode = m; drawBar();
+  $$('.mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+  drawAllThumbs();
+}
+$$('.mode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+$$('[data-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.go)));
+
+function renderStart() {
+  $('#welcome').textContent = S.placed === null ? '' : `Welcome back. Up next for you: ${pname(S.recommended)}.`;
+  $('#btn-start').textContent = S.placed === null ? 'Start pouring' : 'Keep practicing';
+}
+$('#btn-start').addEventListener('click', () => show(S.placed === null ? 'place' : 'menu'));
+
+function renderPlace() {
+  $('#place-grid').innerHTML = PATTERNS.map((p, i) => `
+    <button class="pick" data-claim="${i}" style="--i:${i}">
+      <canvas data-thumb="${p.id}" data-size="120"></canvas>
+      <h3>${p.name}</h3><span class="lvl">${p.level}</span>
+    </button>`).join('');
+  $$('[data-claim]').forEach(b => b.addEventListener('click', () => startRound(+b.dataset.claim, 'place')));
+}
+$('#btn-new').addEventListener('click', () => {
+  const guide = {}; PATTERNS.forEach(p => guide[p.id] = 0);
+  addEntry(`You're new, so you're starting at Monk's Head with the full guide and Easy timing.`, 'You chose "I\'m brand new."',
+    { type:'placement', from: placementState(), to: { placed: 0, recommended: 0, guide, difficulty: 'easy' } });
+  show('menu');
+});
+
+function starsText(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
+function renderMenu() {
+  const rec = S.recommended || 0;
+  $('#level-line').innerHTML = S.placed === null ? 'Not placed yet. <button class="linkish" id="go-place">Do the placement pour</button>'
+    : `Your level: <b>${pname(S.placed)}</b>. Up next for you: <b>${pname(rec)}</b>.`;
+  const gp = $('#go-place'); if (gp) gp.addEventListener('click', () => show('place'));
+  $$('#diff-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.diff === S.difficulty));
+  $('#diff-chip').hidden = S.diffBy !== 'coach';
+  const unseen = S.notebook.filter(e => e.at > S.nbSeen).length;
+  $('#nb-badge').textContent = unseen ? unseen : '';
+  $('#cards').innerHTML = PATTERNS.map((p, i) => {
+    const g = S.guide[p.id] || 0, best = S.best[p.id];
+    return `<article class="card ${i === rec ? 'rec' : ''}" style="--i:${i}">
+      ${i === rec ? '<span class="ribbon">Up next for you</span>' : ''}
+      <canvas data-thumb="${p.id}" data-size="116"></canvas>
+      <div class="card-body">
+        <div class="card-top"><h3>${p.name}</h3><span class="lvl">${p.level}</span></div>
+        <p>${p.blurb}</p>
+        <div class="meta">
+          <span class="dots" title="Complexity">${'●'.repeat(p.complexity)}${'○'.repeat(5 - p.complexity)}</span>
+          <span>${timeLimit(p, S.difficulty)}s</span>
+          <span>Guide: ${GUIDE_NAMES[g]}</span>
+          ${best !== undefined ? `<span class="stars-sm" title="Best on your own">${starsText(best)}</span>` : ''}
+        </div>
+        <div class="card-btns">
+          <button class="btn primary sm" data-play="${i}" data-kind="guided">Practice with guide</button>
+          <button class="btn ghost sm" data-play="${i}" data-kind="free">On my own</button>
+        </div>
+      </div></article>`;
+  }).join('');
+  $$('[data-play]').forEach(b => b.addEventListener('click', () => startRound(+b.dataset.play, b.dataset.kind)));
+  drawAllThumbs();
+}
+$$('#diff-seg button').forEach(b => b.addEventListener('click', () => { S.difficulty = b.dataset.diff; S.diffBy = 'you'; save(); renderMenu(); }));
+$('#btn-replace').addEventListener('click', () => show('place'));
+$('#btn-forget').addEventListener('click', () => {
+  if (!confirm('Forget your level, scores, and notebook? This starts you over.')) return;
+  const mode = S.mode; S = freshState(); S.mode = mode; save(); toast('Forgotten. Fresh start.'); show('start');
+});
+
+/* notebook */
+function openSheet(id) { $(id).hidden = false; }
+$$('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s || e.target.closest('[data-close]')) { s.hidden = true; if ($('#s-menu').classList.contains('active')) renderMenu(); } }));
+window.addEventListener('keydown', e => { if (e.code === 'Escape') $$('.sheet').forEach(s => s.hidden = true); });
+function entryHTML(e) {
+  return `<li class="entry ${e.undone ? 'undone' : ''}">
+    <div class="tx"><span class="main">${e.text}</span><span class="why">${e.why} · ${new Date(e.at).toLocaleDateString(undefined, { month:'short', day:'numeric' })}</span></div>
+    <button class="btn sm ${e.undone ? 'primary' : 'ghost'}" data-entry="${e.id}">${e.undone ? 'Redo' : 'Undo'}</button></li>`;
+}
+function renderNotebook() {
+  $('#nb-list').innerHTML = S.notebook.length ? S.notebook.map(entryHTML).join('')
+    : '<li class="empty">Nothing yet. Do a placement pour or practice on your own and changes will show up here.</li>';
+  bindEntries($('#nb-list'), renderNotebook);
+}
+function bindEntries(root, rerender) {
+  root.querySelectorAll('[data-entry]').forEach(b => b.addEventListener('click', () => { toggleEntry(b.dataset.entry); rerender(); }));
+}
+$('#btn-notebook').addEventListener('click', () => { S.nbSeen = Date.now(); save(); renderNotebook(); openSheet('#notebook'); renderMenu(); });
+
+/* level picker */
+function openPicker() {
+  $('#pk-list').innerHTML = PATTERNS.map((p, i) => `<button class="btn" data-pick="${i}"><span>${p.name}</span><span class="lvl">${p.level}</span></button>`).join('');
+  $$('[data-pick]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.pick;
+    addEntry(`You set your level to ${pname(i)} yourself.`, 'Chosen by you after the placement pour.',
+      { type:'placement', from: placementState(), to: { placed: i, recommended: i, guide: clone(S.guide), difficulty: S.difficulty } });
+    $('#picker').hidden = true; show('menu');
+  }));
+  openSheet('#picker');
+}
+
+/* results */
+function drawResult(showPath) {
+  const cv = $('#res-canvas'), P = PX_STAGE;
+  fitCanvas(cv, P, Math.min(380, window.innerWidth - 32));
+  present(cv, P, S.mode, foam.snapshot(), (c, gm) => {
+    if (!showPath || !G) return;
+    const P2 = q => toScreen(gm, q[0], q[1]);
+    c.save(); c.lineWidth = 1;
+    G.p.strokes.forEach(st => {
+      c.setLineDash([2, 2]); c.strokeStyle = PINK;
+      if (st.kind === 'line') { c.beginPath(); st.pts.forEach((q, j) => j ? c.lineTo(...P2(q)) : c.moveTo(...P2(q))); c.stroke(); }
+      else { const [ax, ay] = P2(st.at); ell(c, ax, ay, 2, 2 * gm.K); c.stroke(); }
+    });
+    c.setLineDash([]); c.strokeStyle = '#6B4E8A'; c.beginPath();
+    let prevT = -1;
+    G.samples.forEach(sm => {
+      const [X, Y] = toScreen(gm, sm.x, sm.y);
+      if (sm.t - prevT > STEP * 2.5) c.moveTo(X, Y); else c.lineTo(X, Y);
+      prevT = sm.t;
+    });
+    c.stroke(); c.restore();
+  });
+}
+$('#show-path').addEventListener('change', e => drawResult(e.target.checked));
+function showResults() {
+  if (!G) return;
+  const r = G.result, p = G.p, i = G.i, kind = G.kind;
+  let notes = [], title;
+  if (kind === 'place') {
+    (S.hist[p.id] = S.hist[p.id] || []).push(r.total);
+    notes = coachPlacement(i, r.total);
+    title = `Placed at ${pname(S.placed)}`;
+  } else {
+    title = G.timeout ? 'Time ran out' : ['Keep pouring', 'Getting there', 'Looking good', 'Café-worthy'][r.stars];
+    if (kind === 'free') {
+      (S.hist[p.id] = S.hist[p.id] || []).push(r.total);
+      S.best[p.id] = Math.max(S.best[p.id] ?? 0, r.stars);
+      notes = coachFree(i, r.total);
+    }
+  }
+  save();
+  show('results');
+  $('#show-path').checked = false; drawResult(false);
+  $('#res-kind').textContent = `${p.name} · ${kind === 'guided' ? 'Guided practice' : kind === 'free' ? 'On your own' : 'Placement pour'} · ${DIFF[G.diff].name}`;
+  $('#res-title').textContent = title;
+  $('#res-stars').innerHTML = [0, 1, 2].map(k => `<span class="${k < r.stars ? '' : 'off'}">★</span>`).join('');
+  $('#res-score').textContent = r.total;
+  const bars = [
+    ['Accuracy', r.acc, 'How close you stayed to the path'],
+    ['Steadiness', r.std, 'How little the pitcher shook'],
+    ['Pace', r.pace, 'How close you were to the right speed'],
+    ['Time', r.time, r.finished ? `Finished in ${G.endT.toFixed(1)}s of ${G.limit}s` : 'You ran out of time'],
+  ];
+  $('#res-bars').innerHTML = bars.map(b => `<div class="bar-row"><span class="nm">${b[0]}</span><div class="bar"><i style="width:0%"></i></div><span>${Math.round(b[1] * 100)}</span><span class="ds">${b[2]}</span></div>`).join('');
+  requestAnimationFrame(() => $$('#res-bars i').forEach((el, k) => el.style.width = Math.round(bars[k][1] * 100) + '%'));
+  const coach = $('#res-coach');
+  const renderCoach = () => {
+    if (notes.length) {
+      coach.innerHTML = `<h3>What Little Pour changed</h3><ul style="list-style:none;padding:0;margin:0">${notes.map(n => entryHTML(S.notebook.find(e => e.id === n.id) || n)).join('')}</ul>`;
+      bindEntries(coach, renderCoach);
+    } else if (kind === 'guided') {
+      coach.innerHTML = `<h3>Guided rounds are for warming up</h3><p>Nothing about your levels changes here. Pour it on your own to count.</p>`;
+    } else {
+      coach.innerHTML = `<h3>No changes this time</h3><p>Your levels and guide stay where they are. Everything Little Pour has changed is in the notebook.</p>`;
+    }
+  };
+  renderCoach();
+  const btns = [];
+  if (kind === 'guided') btns.push(['primary', 'Now pour it on your own', () => startRound(i, 'free')], ['', 'Practice again', () => startRound(i, 'guided')]);
+  else if (kind === 'free') {
+    if (S.recommended !== i && notes.some(n => n.ch.type === 'recommended')) btns.push(['primary', `Try ${pname(S.recommended)}`, () => startRound(S.recommended, 'guided')]);
+    btns.push([btns.length ? '' : 'primary', 'Pour again', () => startRound(i, 'free')]);
+  } else btns.push(['primary', 'Go to practice', () => show('menu')], ['', 'Not right? Choose my level', openPicker]);
+  if (kind !== 'place') btns.push(['ghost', 'Menu', () => show('menu')]);
+  const box = $('#res-btns'); box.innerHTML = '';
+  btns.forEach(([cls, label, fn]) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = fn; box.appendChild(b); });
+}
+
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); }
+
+/* ---------- boot ---------- */
+/* ---------- the bar: a close-up of a walnut counter behind every screen ----------
+   Drawn once per size and mode at a few screen pixels per art pixel, so it matches the cup. */
+const barCv = document.createElement('canvas');
+barCv.id = 'bar'; barCv.setAttribute('aria-hidden', 'true'); document.body.prepend(barCv);
+const barView = { scale: 4, key: '' };
+const WOOD = ['#3A2317', '#5C3B28', '#6A4430', '#774E37', '#84593F', '#93664A'];
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const seeded = seed => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+function paintWood(x, W, H) {
+  const im = x.createImageData(W, H), d = im.data, r = seeded(11), cols = WOOD.map(hex), PH = 20;
+  // each plank gets its own tone, grain wave and end joints, and sometimes a knot
+  const planks = [];
+  for (let k = 0; k * PH < H + PH; k++) {
+    const joints = new Set(); let jx = -r() * 160;
+    while (jx < W) { joints.add(Math.round(jx)); jx += 110 + r() * 130; }
+    planks.push({ tone: [0, 0, -1, 1][(r() * 4) | 0], ph: r() * 100, f: 0.016 + r() * 0.02, joints,
+                  knot: r() < 0.5 ? { x: r() * W, y: 6 + r() * (PH - 12) } : null });
+  }
+  for (let y = 0; y < H; y++) {
+    const pl = planks[(y / PH) | 0], ry = y % PH;
+    for (let xx = 0; xx < W; xx++) {
+      let lv;
+      if (ry === PH - 1 || pl.joints.has(xx)) lv = 0;
+      else {
+        let t = ry + 2.2 * Math.sin(xx * pl.f + pl.ph) + 1.1 * Math.sin(xx * pl.f * 2.7 + pl.ph * 1.3), kd = 9;
+        if (pl.knot) {
+          const dx = (xx - pl.knot.x) / 2.6, dy = ry - pl.knot.y; kd = Math.sqrt(dx * dx + dy * dy);
+          t += (dy >= 0 ? 1 : -1) * 4.5 * Math.exp(-kd * 0.22);
+        }
+        const g = ((t / 3.6) % 1 + 1) % 1;
+        lv = 3 + pl.tone + (g < 0.2 ? -1 : g > 0.82 ? 1 : 0);
+        if (ry === 0 || pl.joints.has(xx - 1)) lv++;
+        if (kd < 2.4) lv = kd < 1.3 ? 1 : 2;
+        // warm light from the top left, stepped with ordered dither so it stays pixel art
+        const light = 0.55 - (xx / W) * 0.55 - (y / H) * 0.55, thr = (BAYER[(y & 3) * 4 + (xx & 3)] / 16 - 0.5) * 0.5;
+        lv += light > thr + 0.2 ? 1 : light < thr - 0.2 ? -1 : 0;
+        lv = Math.max(1, Math.min(5, lv));
+      }
+      const c = cols[lv], o = (y * W + xx) * 4;
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+    }
+  }
+  x.putImageData(im, 0, 0);
+}
+// draw a prop into its own small canvas, give it hard edges and a dark outline
+function sprite(w, h, draw, ink = '#2A1A10') {
+  const c = document.createElement('canvas'); c.width = w + 2; c.height = h + 2;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.translate(1, 1); draw(x);
+  const im = x.getImageData(0, 0, c.width, c.height), d = im.data, W = c.width, n = W * c.height, on = new Uint8Array(n), O = hex(ink);
+  for (let i = 0; i < n; i++) on[i] = d[i * 4 + 3] >= 110 ? 1 : 0;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (on[i]) { d[o + 3] = 255; continue; }
+    const px = i % W;
+    if ((px > 0 && on[i - 1]) || (px < W - 1 && on[i + 1]) || on[i - W] || on[i + W]) { d[o] = O[0]; d[o + 1] = O[1]; d[o + 2] = O[2]; d[o + 3] = 255; }
+    else d[o + 3] = 0;
+  }
+  x.putImageData(im, 0, 0);
+  return c;
+}
+// put a sprite down with a soft-edged pixel shadow below and to the right
+function place(x, sp, px, py, sh = 2) {
+  const c = document.createElement('canvas'); c.width = sp.width; c.height = sp.height;
+  const s2 = c.getContext('2d'); s2.drawImage(sp, 0, 0); s2.globalCompositeOperation = 'source-in';
+  s2.fillStyle = 'rgba(28,14,6,.42)'; s2.fillRect(0, 0, c.width, c.height);
+  x.drawImage(c, Math.round(px + sh), Math.round(py + sh)); x.drawImage(sp, Math.round(px), Math.round(py));
+}
+const rot = (x, w, h, a) => { x.translate(w / 2, h / 2); x.rotate(a); x.translate(-w / 2, -h / 2); };
+const rect = (x, c, a, b, w, h) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
+function towelSprite(mode) {
+  const stripe = mode === 'matcha' ? ['#7FA65B', '#5E8540'] : ['#E7899D', '#C9687E'];
+  return sprite(60, 44, x => {
+    rot(x, 60, 44, -0.10);
+    rect(x, '#E9E0D3', 4, 8, 52, 30);                       // the folded stack
+    for (let j = 8; j < 38; j += 2) for (let i = 4 + (j / 2 % 2); i < 56; i += 2) rect(x, '#F6F0E7', i, j, 1, 1);
+    rect(x, '#D6C8B6', 4, 35, 52, 3);                       // underside in shade
+    rect(x, '#F8F3EC', 6, 4, 50, 15);                       // top fold
+    for (let j = 4; j < 19; j += 2) for (let i = 6 + (j / 2 % 2); i < 56; i += 2) rect(x, '#EEE6DA', i, j, 1, 1);
+    rect(x, '#D9CCBB', 6, 19, 50, 1);                       // the fold line
+    rect(x, stripe[0], 12, 4, 3, 34); rect(x, stripe[0], 17, 4, 1, 34);
+    rect(x, stripe[1], 12, 19, 3, 1); rect(x, stripe[1], 12, 35, 6, 3);
+  });
+}
+function tamperSprite() {
+  return sprite(36, 18, x => {
+    rot(x, 36, 18, 0.18);
+    ['#8E88A8', '#B5B0CA', '#DCD9E8', '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8'].forEach((c, k) => rect(x, c, 1, 3 + k * 2, 12, 2));
+    rect(x, '#F7F6FB', 1, 4, 2, 10); rect(x, '#8E88A8', 13, 6, 4, 6); rect(x, '#B5B0CA', 13, 7, 4, 2);
+    x.fillStyle = '#7A4B2A'; ell(x, 26, 9, 9, 6.5); x.fill();
+    x.fillStyle = '#9C6438'; ell(x, 25, 8, 7, 4.5); x.fill();
+    x.fillStyle = '#C48C55'; ell(x, 23, 6.5, 3.5, 1.6); x.fill();
+  });
+}
+function spoonSprite() {
+  return sprite(32, 12, x => {
+    rot(x, 32, 12, -0.35);
+    x.fillStyle = '#B5B0CA'; ell(x, 6, 6, 5.5, 4); x.fill();
+    x.fillStyle = '#DCD9E8'; ell(x, 6, 5.5, 4, 2.8); x.fill();
+    rect(x, '#FFFFFF', 4, 4, 2, 1);
+    rect(x, '#C9C6D8', 11, 5, 18, 2); rect(x, '#F7F6FB', 11, 5, 18, 1); rect(x, '#C9C6D8', 27, 4, 4, 4);
+  });
+}
+function sugarSprite(mode, a) {
+  const band = mode === 'matcha' ? '#8DB463' : '#EE9FB0';
+  return sprite(20, 16, x => {
+    rot(x, 20, 16, a);
+    rect(x, '#FFFDF8', 2, 3, 16, 10); rect(x, band, 2, 3, 16, 3);
+    rect(x, '#E5DACB', 2, 12, 16, 1); rect(x, '#CDBFAE', 5, 8, 9, 1); rect(x, '#CDBFAE', 5, 10, 6, 1);
+  });
+}
+function beanSprite(a) {
+  return sprite(8, 8, x => {
+    rot(x, 8, 8, a);
+    x.fillStyle = '#4E2C19'; ell(x, 4, 4, 3.6, 2.6); x.fill();
+    rect(x, '#7A4A2C', 2, 2, 2, 1); rect(x, '#24120A', 1, 4, 6, 1);
+  }, '#24120A');
+}
+function scoopSprite() {
+  return sprite(44, 14, x => {
+    rot(x, 44, 14, 0.12);
+    rect(x, '#D9C18A', 6, 6, 34, 3); rect(x, '#EBD9A8', 6, 6, 34, 1); rect(x, '#B89D62', 22, 6, 2, 3);
+    x.fillStyle = '#D9C18A'; ell(x, 5, 7, 4, 3); x.fill();
+    x.fillStyle = '#7FA65B'; ell(x, 5, 6.5, 3, 2); x.fill();
+    rect(x, '#A8C97C', 4, 5, 2, 1);
+  });
+}
+// a puddle of milky drink: no outline, just a darker edge and a glint
+function drip(x, cx, cy, rr, mode, r) {
+  const [dk, md, gl] = mode === 'matcha' ? ['#3F5F27', '#9CC072', '#F0F7E6'] : ['#3E200F', '#C08E62', '#F6E3CC'];
+  const blobs = [[0, 0, rr]];
+  for (let k = 0; k < 2 + ((r() * 3) | 0); k++) { const a = r() * TAU, d = rr + 1 + r() * 3; blobs.push([Math.cos(a) * d, Math.sin(a) * d * 0.8, 0.8 + r() * 1.2]); }
+  x.fillStyle = dk; blobs.forEach(([a, b, q]) => { x.beginPath(); x.ellipse(Math.round(cx + a), Math.round(cy + b + 1), q, q * 0.8, 0, 0, TAU); x.fill(); });
+  x.fillStyle = md; blobs.forEach(([a, b, q]) => { x.beginPath(); x.ellipse(Math.round(cx + a), Math.round(cy + b), q, q * 0.8, 0, 0, TAU); x.fill(); });
+  x.fillStyle = gl; x.fillRect(Math.round(cx - rr * 0.4), Math.round(cy - rr * 0.4), rr > 2.5 ? 2 : 1, 1);
+}
+function drawBar() {
+  const sc = barView.scale, W = Math.ceil(innerWidth / sc), H = Math.ceil(innerHeight / sc), mode = S.mode;
+  const key = [W, H, sc, mode].join('|');
+  if (key === barView.key) return;
+  barView.key = key;
+  barCv.width = W; barCv.height = H;
+  barCv.style.width = W * sc + 'px'; barCv.style.height = H * sc + 'px';
+  const x = barCv.getContext('2d'); x.imageSmoothingEnabled = false;
+  paintWood(x, W, H);
+  const r = seeded(5), wide = W >= 150;
+  // an old cup ring, a few drips, then the things a barista leaves on the bar
+  x.strokeStyle = 'rgba(40,22,12,.45)'; x.lineWidth = 1;
+  if (wide) { x.beginPath(); x.ellipse(Math.round(W * 0.8) + 0.5, Math.round(H * 0.7) + 0.5, 12, 9, 0, 0.3, 5.7); x.stroke(); }
+  [[0.24, 0.80, 4.2], [0.71, 0.88, 3.2], [0.86, 0.30, 4.6], [0.13, 0.40, 3], [0.57, 0.10, 3.6], [0.40, 0.95, 2.4], [0.93, 0.62, 2.6]]
+    .forEach(([a, b, q]) => drip(x, W * a, H * b, q, mode, r));
+  place(x, sugarSprite(mode, -0.25), 6, 10); place(x, sugarSprite(mode, 0.15), 18, 16);
+  place(x, towelSprite(mode), -10, H - 38, 3);
+  place(x, tamperSprite(), W - 42, 12);
+  if (wide) place(x, spoonSprite(), W - 40, Math.round(H * 0.46));
+  if (mode === 'matcha') {
+    place(x, scoopSprite(), W - 56, H - 26);
+    x.fillStyle = '#7FA65B';
+    for (let k = 0; k < 14; k++) x.fillRect(Math.round(W - 60 + r() * 14), Math.round(H - 22 + r() * 9), 1, 1);
+  } else {
+    [[0, 0], [9, -6], [17, 3], [4, 9], [26, -3], [-10, 6], [14, 14]]
+      .forEach(([a, b]) => place(x, beanSprite(r() * TAU), W - 44 + a + r() * 3, H - 24 + b + r() * 3, 1));
+  }
+}
+function setBarScale(sc) { barView.scale = Math.max(2, sc); drawBar(); }
+window.addEventListener('resize', drawBar);
+
+/* ---------- start screen: the hero cup pours its own latte art, on a loop ---------- */
+const hero = { foam: null, i: 0, t: 0, plan: null, x: 0, y: 0, acc: 0 };
+const HERO_ORDER = ['heart', 'tulip', 'rosetta', 'wing', 'rosheart', 'ripple'];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const H_IN = 0.45, H_OUT = 0.45, H_REST = 3.4;
+function heroStep() {
+  const H = hero;
+  if (!H.plan) {
+    H.plan = idealPlan(PATTERNS.find(p => p.id === HERO_ORDER[H.i % HERO_ORDER.length]));
+    H.foam.reset(); H.t = 0;
+    const q = idealAt(H.plan, 0); H.x = q.x; H.y = q.y;
+  }
+  H.t += STEP;
+  const T = H.plan.total; let pour = false;
+  if (H.t >= H_IN && H.t < H_IN + T) {
+    const q = idealAt(H.plan, H.t - H_IN);
+    const vx = (q.x - H.x) / STEP, vy = (q.y - H.y) / STEP;
+    H.x = q.x; H.y = q.y; pour = q.pour;
+    H.foam.step(pour, H.x, H.y, vx, vy, STEP);
+  } else H.foam.step(false, H.x, H.y, 0, 0, STEP);
+  H.pouring = pour;
+  // the pitcher blinks in, pours, blinks out; the finished cup steams for a moment
+  H.alpha = H.t < H_IN ? (H.t < H_IN / 2 ? 0 : 0.4) : H.t < H_IN + T ? 1 : H.t < H_IN + T + H_OUT ? (H.t < H_IN + T + H_OUT / 2 ? 0.4 : 0) : 0;
+  H.steam = H.t > H_IN + T;
+  if (H.t > H_IN + T + H_OUT + H_REST) { H.i++; H.plan = null; const cv = $('#hero'); cv.classList.remove('swap'); void cv.offsetWidth; cv.classList.add('swap'); }
+}
+function heroFrame(dt, now) {
+  const cv = $('#s-start.active #hero');
+  if (!cv) return;
+  if (reduceMotion) { if (THUMBS.heart) drawThumb(cv, (x, gm) => drawSteam(x, gm, now, 0.9)); return; }
+  if (!hero.foam) hero.foam = new Foam();
+  hero.acc += dt; let n = 0;
+  while (hero.acc >= STEP && n < 3) { heroStep(); hero.acc -= STEP; n++; }
+  if (n === 3) hero.acc = 0;
+  const size = +cv.dataset.size, P = Math.round(size / (+cv.dataset.scale || 2));
+  if (+cv.dataset.fit !== size) { fitCanvas(cv, P, size); cv.dataset.fit = size; }
+  present(cv, P, S.mode, hero.foam, (x, gm) => {
+    if (hero.steam) drawSteam(x, gm, now, 0.9);
+    if (hero.alpha > 0) {
+      x.save(); x.globalAlpha = hero.alpha;
+      drawPitcherUnder(x, gm, hero.x, hero.y, hero.pouring, now);
+      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, hero.x, hero.y, hero.pouring)), 0, 0);
+      x.restore();
+    }
+  });
+}
+// the hero cup is as big as the screen allows, in whole art pixels
+function sizeHero() {
+  const cv = $('#hero'), narrow = innerWidth < 820;
+  const s = narrow ? Math.min(innerWidth - 32, 340, innerHeight * 0.42) : Math.min(innerWidth * 0.44, innerHeight * 0.78, 560);
+  cv.dataset.size = Math.max(200, Math.floor(s / 4) * 4);
+}
+window.addEventListener('resize', sizeHero);
+
+load(); S.visits++; save();
+setMode(S.mode);
+sizeHero();
+show('start');
+genThumbs();
+requestAnimationFrame(frame);
+window.LP = { get G() { return G; }, frame, foam, aim, PATTERNS, idealPlan, idealAt, startRound, get S() { return S; } };
+</script>
+</body>
+</html>
