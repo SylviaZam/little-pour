@@ -113,6 +113,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .res-art{display:flex;flex-direction:column;align-items:center;gap:10px}
 .toggle{font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center;cursor:pointer}
 .toggle input{accent-color:var(--accent);width:16px;height:16px}
+.toggle.panel{flex-direction:column;align-items:flex-start;gap:6px;cursor:default}
+.toggle label{display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--ink)}
+.toggle .served{font-size:13px}
 .stars{font-size:30px;color:#E9B949;letter-spacing:4px;margin:4px 0}
 .stars .off{color:#E8DED5}
 .score-big{font-size:38px}
@@ -333,7 +336,8 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
   <div class="res">
     <div class="res-art">
       <canvas id="res-canvas"></canvas>
-      <label class="toggle panel"><input type="checkbox" id="show-path"> Show my path over the guide</label>
+      <div class="toggle panel"><span class="served">Turned around, the way your guest sees it</span>
+        <label><input type="checkbox" id="show-path"> Show my path over the guide</label></div>
     </div>
     <div class="panel res-panel">
       <span class="chip" id="res-kind"></span>
@@ -461,8 +465,10 @@ function pointAt(st, f) {
 
 /* ---------- patterns: ordered by how baristas usually learn them ---------- */
 const ART_SCALE = 1.18; // designs are sketched small, then scaled to fill the cup
+// designs are sketched the way the guest sees them. The barista stands on the other side,
+// so they're poured turned around: the wiggle backs toward you and the pull-through goes away.
 function P(id, name, level, complexity, blurb, strokes) {
-  const sc = q => [q[0] * ART_SCALE, q[1] * ART_SCALE];
+  const sc = q => [-q[0] * ART_SCALE, -q[1] * ART_SCALE];
   strokes.forEach(st => { if (st.at) st.at = sc(st.at); if (st.pts) st.pts = st.pts.map(sc); });
   return { id, name, level, complexity, blurb, strokes: strokes.map(prep) };
 }
@@ -472,9 +478,9 @@ const PATTERNS = [
   P('heart', 'Heart', 'Beginner', 1, 'A dot, then one quick pull through the middle.', [
     { kind:'hold', at:[0, -0.10], dur:2.4, label:'Pour a dot, then let go' },
     { kind:'line', pts:linePts([0, -0.44], [0, 0.44]), dur:0.65, label:'Pull straight through' }]),
-  P('ripple', 'Ripple Heart', 'Beginner', 2, 'Wide wiggles that barely back up, a dot on top, then one pull through.', [
+  P('ripple', 'Ripple Heart', 'Beginner', 2, 'Wide wiggles that barely back up, a dot near you, then one pull through.', [
     { kind:'line', pts:zigPts([0, 0.30], [0, 0.0], 0.24, 0.22, 4), dur:2.6, label:'Wiggle wide, barely backing up' },
-    { kind:'hold', at:[0, -0.14], dur:0.9, label:'Let go, then a dot on top' },
+    { kind:'hold', at:[0, -0.14], dur:0.9, label:'Let go, then a dot near you' },
     { kind:'line', pts:linePts([0, -0.40], [0, 0.54]), dur:0.7, label:'Pull straight through' }]),
   P('tulip', 'Tulip', 'Intermediate', 2, 'Three dots pushed into each other, then a pull through.', [
     { kind:'hold', at:[0, 0.28], dur:1.3, label:'First dot, then let go' },
@@ -498,17 +504,19 @@ const PATTERNS = [
     { kind:'line', pts:linePts([0, -0.60], [0, 0.64]), dur:0.8, label:'Pull straight through' }]),
   P('rosheart', 'Rosetta Heart', 'Advanced', 4, 'A shorter rosetta with a heart set on top, pulled through together.', [
     { kind:'line', pts:zigPts([0, 0.46], [0, -0.14], 0.30, 0.10, 5), dur:3.4, label:'Wiggle while backing up' },
-    { kind:'hold', at:[0, -0.38], dur:1.2, label:'Let go, then pour a heart on top' },
+    { kind:'hold', at:[0, -0.38], dur:1.2, label:'Let go, then pour a heart near you' },
     { kind:'line', pts:linePts([0, -0.54], [0, 0.66]), dur:0.85, label:'Pull through both' }]),
   P('double', 'Double Rosetta', 'Advanced', 5, 'Two slim rosettas side by side. Keep each wiggle narrow.', [
     { kind:'line', pts:zigPts([-0.30, 0.34], [-0.30, -0.42], 0.17, 0.06, 6), dur:3.0, label:'Wiggle the left one' },
     { kind:'line', pts:linePts([-0.30, -0.52], [-0.30, 0.50]), dur:0.7, label:'Pull through it' },
     { kind:'line', pts:zigPts([0.30, 0.34], [0.30, -0.42], 0.17, 0.06, 6), dur:3.0, label:'Wiggle the right one' },
     { kind:'line', pts:linePts([0.30, -0.52], [0.30, 0.50]), dur:0.7, label:'Pull through it' }]),
-  P('swan', 'Swan', 'Advanced', 5, 'A tilted rosetta wing, a small heart for the head, then drag it down into the neck.', [
-    { kind:'line', pts:zigPts([0.14, 0.50], [0.46, -0.30], 0.28, 0.07, 6), dur:3.8, label:'Wiggle the wing up to one side' },
-    { kind:'hold', at:[-0.32, -0.32], dur:0.6, label:'Pour a small heart for the head' },
-    { kind:'line', pts:bezPts([-0.32, -0.42], [-0.36, -0.02], [-0.22, 0.30], [0.08, 0.42]), dur:1.4, flow:2, label:'Drag down through it for the neck' }]),
+  P('swan', 'Swan', 'Advanced', 5, 'A rosetta wing on one side, a neck drawn down and back up, then a small heart for the head.', [
+    { kind:'line', pts:zigPts([0.14, 0.50], [0.46, -0.30], 0.28, 0.07, 6), dur:3.8, label:'Wiggle the wing on one side, backing up' },
+    { kind:'line', pts:[...linePts([0.28, -0.20], [0.04, 0.42]), ...bezPts([0.04, 0.42], [-0.36, 0.44], [-0.44, -0.18], [-0.22, -0.42]).slice(1)],
+      dur:1.6, flow:2, label:'Drag down inside the wing, then back up for the neck' },
+    { kind:'hold', at:[-0.19, -0.42], dur:0.4, label:'Pour a small heart for the head' },
+    { kind:'line', pts:linePts([-0.22, -0.44], [-0.02, -0.42]), dur:0.3, flow:1, label:'Lift and cut through it for the beak' }]),
 ];
 const DIFF = {
   easy:   { name:'Easy',   tol:0.13,  mult:2.1 },
@@ -629,7 +637,12 @@ class Foam {
       if (r2 > R * R) { const s = R / Math.sqrt(r2); x[i] *= s; y[i] *= s; }
     }
   }
-  snapshot() { return { n: this.n, x: this.x.slice(0, this.n), y: this.y.slice(0, this.n), t: this.t.slice(0, this.n), b: this.b.slice(0, this.n) }; }
+  // served: turned around to face the guest
+  snapshot(served = false) {
+    const x = this.x.slice(0, this.n), y = this.y.slice(0, this.n);
+    if (served) for (let i = 0; i < this.n; i++) { x[i] = -x[i]; y[i] = -y[i]; }
+    return { n: this.n, x, y, t: this.t.slice(0, this.n), b: this.b.slice(0, this.n) };
+  }
 }
 
 /* ---------- drawing helpers: a 3/4 view, lit from the top left ---------- */
@@ -1421,7 +1434,7 @@ function idealAt(plan, t) {
     if (t > s.t1) continue;
     const f = (t - s.t0) / (s.t1 - s.t0);
     if (s.move) return { x: lerp(s.from[0], s.to[0], f), y: lerp(s.from[1], s.to[1], f), pour: false };
-    const q = pointAt(s.st, f); return { x: q[0], y: q[1], pour: true };
+    const q = pointAt(s.st, f); return { x: q[0], y: q[1], pour: true, flow: s.st.flow };
   }
   const e = plan.segs[plan.segs.length - 1]; const q = e.st ? e.st.end : e.to;
   return { x: q[0], y: q[1], pour: false };
@@ -1438,11 +1451,11 @@ function genThumbs() {
     const chunk = () => {
       for (let k = 0; k < 60 && t < plan.total; k++) {
         const cur = idealAt(plan, t + STEP);
-        sim.step(cur.pour, cur.x, cur.y, (cur.x - prev.x) / STEP, (cur.y - prev.y) / STEP, STEP);
+        sim.step(cur.pour, cur.x, cur.y, (cur.x - prev.x) / STEP, (cur.y - prev.y) / STEP, STEP, cur.flow);
         prev = cur; t += STEP;
       }
       if (t < plan.total) later(chunk);
-      else { THUMBS[p.id] = sim.snapshot(); $$(`canvas[data-thumb="${p.id}"]`).forEach(cv => drawThumb(cv)); later(next); }
+      else { THUMBS[p.id] = sim.snapshot(true); $$(`canvas[data-thumb="${p.id}"]`).forEach(cv => drawThumb(cv)); later(next); }
     };
     chunk();
   };
@@ -1572,9 +1585,9 @@ function openPicker() {
 function drawResult(showPath) {
   const cv = $('#res-canvas'), P = PX_STAGE;
   fitCanvas(cv, P, Math.min(380, window.innerWidth - 32));
-  present(cv, P, S.mode, foam.snapshot(), (c, gm) => {
+  present(cv, P, S.mode, foam.snapshot(true), (c, gm) => {
     if (!showPath || !G) return;
-    const P2 = q => toScreen(gm, q[0], q[1]);
+    const P2 = q => toScreen(gm, -q[0], -q[1]);
     c.save(); c.lineWidth = 1;
     G.p.strokes.forEach(st => {
       c.setLineDash([2, 2]); c.strokeStyle = PINK;
@@ -1584,7 +1597,7 @@ function drawResult(showPath) {
     c.setLineDash([]); c.strokeStyle = '#6B4E8A'; c.beginPath();
     let prevT = -1;
     G.samples.forEach(sm => {
-      const [X, Y] = toScreen(gm, sm.x, sm.y);
+      const [X, Y] = toScreen(gm, -sm.x, -sm.y);
       if (sm.t - prevT > STEP * 2.5) c.moveTo(X, Y); else c.lineTo(X, Y);
       prevT = sm.t;
     });
@@ -1880,7 +1893,7 @@ function heroStep() {
   const H = hero;
   if (!H.plan) {
     H.plan = idealPlan(PATTERNS.find(p => p.id === HERO_ORDER[H.i % HERO_ORDER.length]));
-    H.foam.reset(); H.t = 0;
+    H.foam.reset(); H.t = 0; H.turned = null;
     const q = idealAt(H.plan, 0); H.x = q.x; H.y = q.y;
   }
   H.t += STEP;
@@ -1888,15 +1901,17 @@ function heroStep() {
   if (H.t >= H_IN && H.t < H_IN + T) {
     const q = idealAt(H.plan, H.t - H_IN);
     const vx = (q.x - H.x) / STEP, vy = (q.y - H.y) / STEP;
-    H.x = q.x; H.y = q.y; pour = q.pour;
-    H.foam.step(pour, H.x, H.y, vx, vy, STEP);
+    H.x = q.x; H.y = q.y; pour = q.pour; H.flow = q.flow || 2;
+    H.foam.step(pour, H.x, H.y, vx, vy, STEP, q.flow);
   } else H.foam.step(false, H.x, H.y, 0, 0, STEP);
   H.pouring = pour;
   // the pitcher blinks in, pours, blinks out; the finished cup steams for a moment
   H.alpha = H.t < H_IN ? (H.t < H_IN / 2 ? 0 : 0.4) : H.t < H_IN + T ? 1 : H.t < H_IN + T + H_OUT ? (H.t < H_IN + T + H_OUT / 2 ? 0.4 : 0) : 0;
   H.steam = H.t > H_IN + T;
-  if (H.t > H_IN + T + H_OUT + H_REST) { H.i++; H.plan = null; const cv = $('#hero'); cv.classList.remove('swap'); void cv.offsetWidth; cv.classList.add('swap'); }
+  if (!H.turned && H.t > H_IN + T + H_OUT) { H.turned = H.foam.snapshot(true); blinkHero(); }
+  if (H.t > H_IN + T + H_OUT + H_REST) { H.i++; H.plan = null; blinkHero(); }
 }
+function blinkHero() { const cv = $('#hero'); cv.classList.remove('swap'); void cv.offsetWidth; cv.classList.add('swap'); }
 function heroFrame(dt, now) {
   const cv = $('#s-start.active #hero');
   if (!cv) return;
@@ -1907,12 +1922,12 @@ function heroFrame(dt, now) {
   if (n === 3) hero.acc = 0;
   const size = +cv.dataset.size, P = Math.round(size / (+cv.dataset.scale || 2));
   if (+cv.dataset.fit !== size) { fitCanvas(cv, P, size); cv.dataset.fit = size; }
-  present(cv, P, S.mode, hero.foam, (x, gm) => {
+  present(cv, P, S.mode, hero.turned || hero.foam, (x, gm) => {
     if (hero.steam) drawSteam(x, gm, now, 0.9);
     if (hero.alpha > 0) {
       x.save(); x.globalAlpha = hero.alpha;
-      drawPitcherUnder(x, gm, hero.x, hero.y, hero.pouring, now);
-      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, hero.x, hero.y, hero.pouring)), 0, 0);
+      drawPitcherUnder(x, gm, hero.x, hero.y, hero.pouring, now, hero.flow);
+      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, hero.x, hero.y, hero.pouring, hero.flow)), 0, 0);
       x.restore();
     }
   });
