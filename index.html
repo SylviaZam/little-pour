@@ -1628,61 +1628,99 @@ function place(x, sp, px, py, sh = 2) {
 }
 const rot = (x, w, h, a) => { x.translate(w / 2, h / 2); x.rotate(a); x.translate(-w / 2, -h / 2); };
 const rect = (x, c, a, b, w, h) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
+// props are drawn at real size next to the cup (saucer ≈ 130 art px ≈ 15 cm)
+const STEEL_BANDS = ['#6E6889', '#8E88A8', '#B5B0CA', '#DCD9E8', '#F7F6FB', '#FFFFFF', '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8', '#6E6889'];
 function towelSprite(mode) {
-  const stripe = mode === 'matcha' ? ['#7FA65B', '#5E8540'] : ['#E7899D', '#C9687E'];
-  return sprite(60, 44, x => {
-    rot(x, 60, 44, -0.10);
-    rect(x, '#E9E0D3', 4, 8, 52, 30);                       // the folded stack
-    for (let j = 8; j < 38; j += 2) for (let i = 4 + (j / 2 % 2); i < 56; i += 2) rect(x, '#F6F0E7', i, j, 1, 1);
-    rect(x, '#D6C8B6', 4, 35, 52, 3);                       // underside in shade
-    rect(x, '#F8F3EC', 6, 4, 50, 15);                       // top fold
-    for (let j = 4; j < 19; j += 2) for (let i = 6 + (j / 2 % 2); i < 56; i += 2) rect(x, '#EEE6DA', i, j, 1, 1);
-    rect(x, '#D9CCBB', 6, 19, 50, 1);                       // the fold line
-    rect(x, stripe[0], 12, 4, 3, 34); rect(x, stripe[0], 17, 4, 1, 34);
-    rect(x, stripe[1], 12, 19, 3, 1); rect(x, stripe[1], 12, 35, 6, 3);
+  const st = mode === 'matcha' ? ['#7FA65B', '#5E8540'] : ['#E7899D', '#C9687E'];
+  return sprite(176, 128, x => {
+    rot(x, 176, 128, -0.09);
+    const L = 12, T = 14, Wd = 152, Ht = 100, fold = 46;
+    // the folded stack, its underside, then the top fold with a waffle weave
+    rect(x, '#D3C4B1', L, T + 6, Wd, Ht);
+    rect(x, '#E9E0D3', L, T, Wd, Ht - 4);
+    for (let j = T + fold + 2; j < T + Ht - 4; j += 2) for (let i = L + (j / 2 % 2); i < L + Wd; i += 2) rect(x, '#F4EEE5', i, j, 1, 1);
+    rect(x, '#DCCFBD', L, T + Ht - 8, Wd, 4);
+    rect(x, '#F8F3EC', L + 3, T - 6, Wd - 3, fold + 6);
+    for (let j = T - 6; j < T + fold; j += 2) for (let i = L + 3 + (j / 2 % 2); i < L + Wd; i += 2) rect(x, '#EDE4D8', i, j, 1, 1);
+    rect(x, '#FFFFFF', L + 3, T - 6, Wd - 3, 1);
+    rect(x, '#D3C4B1', L + 3, T + fold, Wd - 3, 2);            // the fold's shadow
+    rect(x, '#E2D6C6', L + 3, T + fold + 2, Wd - 3, 1);
+    // two woven stripes running across both layers
+    [[112, 8], [124, 3]].forEach(([sx, sw]) => {
+      rect(x, st[0], L + sx, T - 6, sw, Ht + 2);
+      rect(x, st[1], L + sx, T + fold, sw, 3); rect(x, st[1], L + sx, T + Ht - 8, sw, 10);
+    });
+    // a little hem along the near edge
+    for (let i = L + 2; i < L + Wd; i += 3) rect(x, '#D9CCBB', i, T + Ht + 2, 2, 1);
   });
 }
 function tamperSprite() {
-  return sprite(36, 18, x => {
-    rot(x, 36, 18, 0.18);
-    ['#8E88A8', '#B5B0CA', '#DCD9E8', '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8'].forEach((c, k) => rect(x, c, 1, 3 + k * 2, 12, 2));
-    rect(x, '#F7F6FB', 1, 4, 2, 10); rect(x, '#8E88A8', 13, 6, 4, 6); rect(x, '#B5B0CA', 13, 7, 4, 2);
-    x.fillStyle = '#7A4B2A'; ell(x, 26, 9, 9, 6.5); x.fill();
-    x.fillStyle = '#9C6438'; ell(x, 25, 8, 7, 4.5); x.fill();
-    x.fillStyle = '#C48C55'; ell(x, 23, 6.5, 3.5, 1.6); x.fill();
+  return sprite(100, 54, x => {
+    rot(x, 100, 54, 0.16);
+    // steel base lying on its side: bands run along the cylinder
+    STEEL_BANDS.forEach((c, k) => rect(x, c, 4, 6 + k * 4, 30, 4));
+    x.fillStyle = '#DCD9E8'; ell(x, 4, 28, 4, 22); x.fill();
+    x.fillStyle = '#F7F6FB'; ell(x, 4, 25, 2.5, 16); x.fill();
+    rect(x, '#6E6889', 33, 6, 2, 44);
+    // neck
+    ['#8E88A8', '#B5B0CA', '#F7F6FB', '#B5B0CA', '#8E88A8'].forEach((c, k) => rect(x, c, 35, 20 + k * 3, 12, 3));
+    // wooden handle
+    x.fillStyle = '#5E3A20'; ell(x, 70, 29, 26, 19); x.fill();
+    x.fillStyle = '#8A5730'; ell(x, 69, 27, 24, 16); x.fill();
+    x.fillStyle = '#A86E3E'; ell(x, 66, 23, 17, 10); x.fill();
+    x.fillStyle = '#C98E58'; ell(x, 62, 19, 9, 4); x.fill();
+    rect(x, '#E3B07A', 58, 17, 6, 2);
+    for (let k = 0; k < 5; k++) rect(x, '#7A4B2A', 54 + k * 7, 36 - (k % 2) * 3, 5, 1);
   });
 }
 function spoonSprite() {
-  return sprite(32, 12, x => {
-    rot(x, 32, 12, -0.35);
-    x.fillStyle = '#B5B0CA'; ell(x, 6, 6, 5.5, 4); x.fill();
-    x.fillStyle = '#DCD9E8'; ell(x, 6, 5.5, 4, 2.8); x.fill();
-    rect(x, '#FFFFFF', 4, 4, 2, 1);
-    rect(x, '#C9C6D8', 11, 5, 18, 2); rect(x, '#F7F6FB', 11, 5, 18, 1); rect(x, '#C9C6D8', 27, 4, 4, 4);
+  return sprite(124, 40, x => {
+    rot(x, 124, 40, -0.28);
+    x.fillStyle = '#8E88A8'; ell(x, 20, 20, 18, 12.5); x.fill();
+    x.fillStyle = '#B5B0CA'; ell(x, 20, 19, 16, 11); x.fill();
+    x.fillStyle = '#DCD9E8'; ell(x, 21, 18, 12, 7.5); x.fill();
+    x.fillStyle = '#F7F6FB'; ell(x, 15, 15, 5, 2.5); x.fill();
+    rect(x, '#FFFFFF', 12, 14, 4, 1);
+    // the handle tapers in, then flares into a little paddle
+    x.fillStyle = '#B5B0CA'; x.beginPath(); x.moveTo(36, 17); x.lineTo(104, 15); x.lineTo(104, 23); x.lineTo(36, 22); x.closePath(); x.fill();
+    rect(x, '#F7F6FB', 38, 17, 66, 1); rect(x, '#DCD9E8', 38, 18, 66, 2);
+    x.fillStyle = '#B5B0CA'; ell(x, 110, 19, 11, 6); x.fill();
+    x.fillStyle = '#DCD9E8'; ell(x, 110, 18, 9, 4); x.fill();
+    rect(x, '#FFFFFF', 106, 16, 5, 1);
   });
 }
 function sugarSprite(mode, a) {
-  const band = mode === 'matcha' ? '#8DB463' : '#EE9FB0';
-  return sprite(20, 16, x => {
-    rot(x, 20, 16, a);
-    rect(x, '#FFFDF8', 2, 3, 16, 10); rect(x, band, 2, 3, 16, 3);
-    rect(x, '#E5DACB', 2, 12, 16, 1); rect(x, '#CDBFAE', 5, 8, 9, 1); rect(x, '#CDBFAE', 5, 10, 6, 1);
+  const band = mode === 'matcha' ? ['#8DB463', '#6E9849'] : ['#EE9FB0', '#D97B90'];
+  return sprite(70, 50, x => {
+    rot(x, 70, 50, a);
+    rect(x, '#E5DACB', 7, 12, 56, 30);
+    rect(x, '#FFFDF8', 7, 10, 56, 30);
+    rect(x, band[0], 7, 10, 56, 9); rect(x, band[1], 7, 18, 56, 1);
+    for (let i = 7; i < 63; i += 2) rect(x, '#F2EADF', i, 10, 1, 1);          // crimped ends
+    rect(x, '#C9B9A8', 15, 25, 30, 2); rect(x, '#C9B9A8', 15, 30, 22, 2); rect(x, '#DCCFBF', 15, 35, 34, 1);
+    x.fillStyle = band[0]; ell(x, 52, 30, 4, 4); x.fill();
   });
 }
 function beanSprite(a) {
-  return sprite(8, 8, x => {
-    rot(x, 8, 8, a);
-    x.fillStyle = '#4E2C19'; ell(x, 4, 4, 3.6, 2.6); x.fill();
-    rect(x, '#7A4A2C', 2, 2, 2, 1); rect(x, '#24120A', 1, 4, 6, 1);
+  return sprite(13, 13, x => {
+    rot(x, 13, 13, a);
+    x.fillStyle = '#4E2C19'; ell(x, 6.5, 6.5, 5.2, 3.8); x.fill();
+    x.fillStyle = '#6B3E22'; ell(x, 5.5, 5.5, 3, 1.8); x.fill();
+    rect(x, '#8E5A34', 4, 4, 2, 1);
+    x.strokeStyle = '#24120A'; x.lineWidth = 1; x.beginPath(); x.moveTo(2, 7); x.quadraticCurveTo(6.5, 5.5, 11, 7); x.stroke();
   }, '#24120A');
 }
 function scoopSprite() {
-  return sprite(44, 14, x => {
-    rot(x, 44, 14, 0.12);
-    rect(x, '#D9C18A', 6, 6, 34, 3); rect(x, '#EBD9A8', 6, 6, 34, 1); rect(x, '#B89D62', 22, 6, 2, 3);
-    x.fillStyle = '#D9C18A'; ell(x, 5, 7, 4, 3); x.fill();
-    x.fillStyle = '#7FA65B'; ell(x, 5, 6.5, 3, 2); x.fill();
-    rect(x, '#A8C97C', 4, 5, 2, 1);
+  return sprite(164, 30, x => {
+    rot(x, 164, 30, 0.1);
+    // a long bamboo strip with one node, bent up into a little cup at the tip
+    rect(x, '#B89D62', 22, 13, 136, 7); rect(x, '#D9C18A', 22, 12, 136, 6); rect(x, '#EBD9A8', 22, 12, 136, 2);
+    rect(x, '#A68A50', 92, 12, 4, 8); rect(x, '#EBD9A8', 96, 12, 1, 6);
+    x.fillStyle = '#B89D62'; ell(x, 16, 16, 13, 9); x.fill();
+    x.fillStyle = '#D9C18A'; ell(x, 16, 15, 12, 7.5); x.fill();
+    x.fillStyle = '#5E8540'; ell(x, 15, 14, 9, 5); x.fill();
+    x.fillStyle = '#7FA65B'; ell(x, 14, 13, 7, 3.6); x.fill();
+    rect(x, '#A8C97C', 10, 11, 4, 1); rect(x, '#A8C97C', 15, 12, 2, 1);
   });
 }
 // a puddle of milky drink: no outline, just a darker edge and a glint
@@ -1703,23 +1741,25 @@ function drawBar() {
   barCv.style.width = W * sc + 'px'; barCv.style.height = H * sc + 'px';
   const x = barCv.getContext('2d'); x.imageSmoothingEnabled = false;
   paintWood(x, W, H);
-  const r = seeded(5), wide = W >= 150;
+  const r = seeded(5), wide = innerWidth >= 600;
   // an old cup ring, a few drips, then the things a barista leaves on the bar
   x.strokeStyle = 'rgba(40,22,12,.45)'; x.lineWidth = 1;
   if (wide) { x.beginPath(); x.ellipse(Math.round(W * 0.8) + 0.5, Math.round(H * 0.7) + 0.5, 12, 9, 0, 0.3, 5.7); x.stroke(); }
-  [[0.24, 0.80, 4.2], [0.71, 0.82, 3.2], [0.86, 0.30, 4.6], [0.13, 0.40, 3], [0.57, 0.10, 3.6], [0.40, 0.86, 2.4], [0.93, 0.62, 2.6]]
+  [[0.71, 0.82, 4.2], [0.30, 0.12, 3.4]]
     .forEach(([a, b, q]) => drip(x, W * a, H * b, q, mode, r));
-  place(x, sugarSprite(mode, -0.25), 6, 10); place(x, sugarSprite(mode, 0.15), 18, 16);
-  place(x, towelSprite(mode), -10, H - EDGE - 40, 3);
-  place(x, tamperSprite(), W - 42, 12);
-  if (wide) place(x, spoonSprite(), W - 40, Math.round(H * 0.46));
+  // big props hang off the screen edges, the way a close-up crops them
+  place(x, sugarSprite(mode, -0.22), wide ? -30 : -40, -10, 3); if (wide) place(x, sugarSprite(mode, 0.18), 18, 14, 3);
+  place(x, towelSprite(mode), wide ? -56 : -128, H - EDGE - 92, 4);
+  place(x, tamperSprite(), W - (wide ? 84 : 34), wide ? 4 : -10, 4);
+  if (wide) place(x, spoonSprite(), W - 92, Math.round(H * 0.46), 3);
   if (mode === 'matcha') {
-    place(x, scoopSprite(), W - 56, H - EDGE - 26);
+    const sx = W - (wide ? 140 : 90), sy = H - EDGE - 40;
+    place(x, scoopSprite(), sx, sy, 3);
     x.fillStyle = '#7FA65B';
-    for (let k = 0; k < 14; k++) x.fillRect(Math.round(W - 60 + r() * 14), Math.round(H - EDGE - 22 + r() * 9), 1, 1);
+    for (let k = 0; k < 26; k++) x.fillRect(Math.round(sx - 8 + r() * 26), Math.round(sy + 22 + r() * 10), 1 + (r() < 0.3), 1);
   } else {
-    [[0, 0], [9, -6], [17, 3], [4, 9], [26, -3], [-10, 6], [14, 14]]
-      .forEach(([a, b]) => place(x, beanSprite(r() * TAU), W - 44 + a + r() * 3, H - EDGE - 30 + b + r() * 3, 1));
+    [[0, 0], [12, -9], [24, 4], [6, 13], [36, -4], [-14, 8], [20, 19], [46, 10], [-4, -12]]
+      .forEach(([a, b]) => place(x, beanSprite(r() * TAU), W - (wide ? 76 : 40) + a + r() * 3, H - EDGE - 38 + b + r() * 3, 2));
   }
 }
 function setBarScale(sc) { barView.scale = Math.max(2, sc); drawBar(); }
