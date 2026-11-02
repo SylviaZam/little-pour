@@ -211,6 +211,13 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
 .tip-panel{max-width:680px;width:100%;padding:10px 16px;margin-top:4px}
 .tip-panel .hint{margin-top:2px}
 .flow{display:flex;justify-content:center;gap:14px;margin:8px 0 6px}
+.jug{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;font-size:13px;color:var(--ink)}
+.jug small{font-size:12px;color:var(--muted);white-space:nowrap}
+@media (max-width:480px){.jug-bar{width:120px}}
+.jug-bar{display:flex;width:180px;height:14px;border:2px solid var(--ink);background:var(--soft)}
+.jug-bar i{display:block;height:100%}
+#jug-milk{background:#D9C3A5}
+#jug-foam{background:#FFFFFF;background-image:radial-gradient(circle,#D9C3A5 1px,transparent 1.5px);background-size:5px 5px}
 .flow[hidden]{display:none}
 .fk{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .fk b{font-family:'Pixelify Sans';font-weight:500;font-size:14px;min-width:26px;text-align:center;padding:1px 0;background:var(--card);border:2px solid var(--ink);box-shadow:0 3px 0 var(--ink);color:var(--ink)}
@@ -324,6 +331,7 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
   </div>
   <div class="panel tip-panel">
   <div class="step" id="hud-step"></div>
+  <div class="jug" aria-hidden="true"><span>Pitcher</span><div class="jug-bar"><i id="jug-milk"></i><i id="jug-foam"></i></div><small>milk, then foam</small></div>
   <div class="flow" id="flow" aria-hidden="true">
     <span class="fk" data-f="1"><b>A</b>Thin</span><span class="fk" data-f="2"><b>S</b>Steady</span><span class="fk" data-f="3"><b>D</b>Full</span>
   </div>
@@ -386,6 +394,12 @@ const FLOWS = [null,
   { key: 'A', code: 'KeyA', name: 'Thin',   milk: 0.15, push: 0.15, drag: 0.8 },
   { key: 'S', code: 'KeyS', name: 'Steady', milk: 0.55, push: 0.6,  drag: 1.0 },
   { key: 'D', code: 'KeyD', name: 'Full',   milk: 1.0,  push: 1.0,  drag: 1.2 }];
+// the pitcher pours plain milk first and its foam last. Amounts are in cups: a round starts with
+// espresso at 30% full, the milk fills it to about 62%, and the foam brings it near the brim.
+const CUP0 = 0.30, MILK0 = 0.32, FOAM0 = 0.30;
+const FILL_RATE = [0, 0.12, 0.2, 0.3];   // cups per second while filling, by flow
+const LIQUID_TOP = [0, 0, 0.18, 0.45];   // share of the filling milk that shows white: none from a thin, high stream
+const FOAM_USE = [0, 0.35, 0.65, 1];     // how fast each flow spends foam, relative to a full pour
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -527,8 +541,10 @@ const DIFF_ORDER = ['easy', 'medium', 'hard'];
 const GUIDE_NAMES = ['full', 'lighter', 'faint'];
 function timeLimit(p, diff) {
   const base = p.strokes.reduce((a, s) => a + s.dur, 0) + 0.9 * p.strokes.length + 1.0;
-  return Math.round(base * DIFF[diff].mult * 10) / 10;
+  return Math.round((base * DIFF[diff].mult + MILK0 / FILL_RATE[1] + 1.5) * 10) / 10;   // plus time to fill the cup
 }
+// foam spent per second at full flow, so the right pour leaves about a quarter of it spare
+const foamRate = p => FOAM0 / (1.3 * p.strokes.reduce((a, st) => a + st.dur * FOAM_USE[st.flow], 0));
 
 /* ---------- foam simulation ----------
    The surface is filled with crema particles. Poured milk adds foam particles
@@ -591,8 +607,9 @@ class Foam {
       }
     }
   }
-  // flow is 1 to 3 (see FLOWS); left out, it is guessed from the motion the way the thumbnails pour
-  step(pour, px, py, vx, vy, dt, flow) {
+  // flow is 1 to 3 (see FLOWS); left out, it is guessed from the motion the way the thumbnails pour.
+  // surface scales how much of the milk stays on top (the plain milk that fills the cup mostly sinks)
+  step(pour, px, py, vx, vy, dt, flow, surface = 1) {
     const sp = Math.hypot(vx, vy), { x, y } = this;
     // each new pour (and each swing of a wiggle) is its own layer, so a thin crema edge shows between them
     if (pour && !this.wasPour) { if (sp < 0.5) this.batch++; this.bt = 0; }
@@ -608,7 +625,7 @@ class Foam {
       this.evx = (this.evx || 0) * 0.9 + vx * 0.1; this.evy = (this.evy || 0) * 0.9 + vy * 0.1; this.esp = (this.esp || 0) * 0.9 + sp * 0.1;
       const straight = this.esp > 0.05 ? Math.hypot(this.evx, this.evy) / this.esp : 0;
       const F = FLOWS[flow];
-      this.acc += dt * FLOW * (F ? F.milk : 1 - 0.82 * straight * clamp01(sp / 0.8)) / (1 + sp * 0.3);
+      this.acc += dt * FLOW * surface * (F ? F.milk : 1 - 0.82 * straight * clamp01(sp / 0.8)) / (1 + sp * 0.3);
       while (this.acc >= 1) {
         this.acc -= 1;
         const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.014;
@@ -665,13 +682,14 @@ const CUPS = {
   coffee: { bodyL:'#F8E3DA', bodyD:'#ECCABD', bodyDD:'#D9AC9C', saucerL:'#FFFBF7', saucerD:'#E3CBBD', band:'#F2B2A6', bandD:'#DB8C80', wall:'#E8DCD2', wallD:'#D5C4B6' },
   matcha: { bodyL:'#E6F1DA', bodyD:'#CFE2BF', bodyDD:'#B2CDA0', saucerL:'#FBFEF7', saucerD:'#D4E4C6', band:'#A6C98F', bandD:'#86AE6F', wall:'#DFE8D5', wallD:'#C9D7BC' },
 };
-// every size comes from the drink radius R, so thumbnails and the stage match
-function geo(s) {
-  const R = s * 0.29, cx = s / 2, cy = s * 0.40;
-  return { s, R, cx, cy, K: TILT, lc: cy + R * 0.07,
+// every size comes from the drink radius R, so thumbnails and the stage match.
+// lv is how full the cup is (1 = to the brim): a lower drink sits deeper and, since the cup tapers, smaller.
+function geo(s, lv = 1) {
+  const R = s * 0.29, cx = s / 2, cy = s * 0.40, lc = cy + R * 0.07;
+  return { s, R, cx, cy, K: TILT, lc, lv, Rs: R * (0.78 + 0.22 * lv), ls: lc + (1 - lv) * R * 0.62,
            rimO: R * 1.13, rimI: R * 1.045, baseY: cy + R * 0.70, baseR: R * 0.80, sY: cy + R * 0.82, sR: R * 1.56 };
 }
-const toScreen = (g, u, v) => [g.cx + u * g.R, g.lc + v * g.R * g.K];
+const toScreen = (g, u, v) => [g.cx + u * g.Rs, g.ls + v * g.Rs * g.K];
 
 /* ---------- pixel art ----------
    Every scene is drawn small with ordinary canvas shapes, then snapped to a fixed
@@ -805,11 +823,12 @@ function drawCupBody(b, g, mode) {
 }
 function drawFront(t, g, mode) {
   const { R, cx, cy, K } = g, pal = PAL[mode];
-  t.save(); ell(t, cx, cy, g.rimI, g.rimI * K); t.clip(); ell(t, cx, g.lc, R, R * K); t.clip();
-  t.translate(cx, g.lc); t.scale(1, K);
-  const gr = t.createRadialGradient(0, 0, R * 0.84, 0, 0, R);
+  const Rs = g.Rs;
+  t.save(); ell(t, cx, cy, g.rimI, g.rimI * K); t.clip(); ell(t, cx, g.ls, Rs, Rs * K); t.clip();
+  t.translate(cx, g.ls); t.scale(1, K);
+  const gr = t.createRadialGradient(0, 0, Rs * 0.84, 0, 0, Rs);
   gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, pal.rim);
-  t.fillStyle = gr; circle(t, 0, 0, R); t.fill();
+  t.fillStyle = gr; circle(t, 0, 0, Rs); t.fill();
   // window glint: a little stack of white pixels
   t.fillStyle = 'rgba(255,255,255,.85)';
   t.fillRect(Math.round(-R * 0.62), Math.round(-R * 0.62), Math.max(2, Math.round(R * 0.16)), Math.max(1, Math.round(R * 0.05)));
@@ -832,29 +851,50 @@ function pxStatic(P, mode, bg = PAGE_BG) {
   }
   return pxCache.get(key);
 }
-function pxFront(P, mode) {
-  const key = 'front' + P + mode;
+function pxFront(P, mode, lv = 1) {
+  const key = 'front' + P + mode + lv.toFixed(2);
   if (!pxCache.has(key)) {
     const c = document.createElement('canvas'); c.width = c.height = P;
-    drawFront(c.getContext('2d'), geo(P), mode); pxCache.set(key, c);
+    drawFront(c.getContext('2d'), geo(P, lv), mode); pxCache.set(key, c);
   }
   return pxCache.get(key);
+}
+// a cup that isn't full yet: the inner wall shows above a deeper, smaller drink
+function drawLowDrink(b, g, mode) {
+  const { cx, cy, K, Rs } = g, C = CUPS[mode], pal = PAL[mode];
+  b.save(); ell(b, cx, cy, g.rimI, g.rimI * K); b.clip();
+  let gr = b.createLinearGradient(0, cy - g.rimI * K, 0, g.ls + Rs * K);
+  gr.addColorStop(0, C.wallD); gr.addColorStop(0.45, C.wall); gr.addColorStop(1, C.wallD);
+  b.fillStyle = gr; ell(b, cx, cy, g.rimI, g.rimI * K); b.fill();
+  b.fillStyle = 'rgba(90,60,40,.18)'; ell(b, cx, g.ls - Rs * K * 0.2, Rs * 1.04, Rs * K * 1.1); b.fill();   // shade the wall just above the drink
+  b.translate(cx, g.ls); b.scale(1, K);
+  gr = b.createRadialGradient(-Rs * 0.25, -Rs * 0.3, Rs * 0.05, 0, 0, Rs);
+  gr.addColorStop(0, pal.c0); gr.addColorStop(0.5, pal.c1); gr.addColorStop(1, pal.c2);
+  b.fillStyle = gr; circle(b, 0, 0, Rs); b.fill();
+  b.restore();
 }
 // Draw a scene onto a visible canvas. The cup, saucer, pitcher and guides are pixel art,
 // scaled up with hard edges; the milk is painted between them at screen resolution,
 // so it keeps soft edges and gradients.
-function present(target, P, mode, foam, extra, bg) {
-  const g = geo(P), { c, x } = pxBuf(P, 'frame'), t = target.getContext('2d');
+// lv: how full the cup is; mix: how much milk has gone into the espresso so far (0 to 1)
+function present(target, P, mode, foam, extra, bg, lv = 1, mix = 1) {
+  lv = Math.round(lv * 50) / 50;   // steps of 2%, so each level's front layer can be cached
+  const g = geo(P, lv), { c, x } = pxBuf(P, 'frame'), t = target.getContext('2d');
   x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.clearRect(0, 0, P, P);
   x.drawImage(pxStatic(P, mode, bg || null), 0, 0);
-  x.drawImage(pxFront(P, mode), 0, 0);
+  if (lv < 1) drawLowDrink(x, g, mode);
+  x.drawImage(pxFront(P, mode, lv), 0, 0);
   quantize(x, P, mode, !bg);
   t.setTransform(1, 0, 0, 1, 0, 0); t.imageSmoothingEnabled = false;
   if (!bg) t.clearRect(0, 0, target.width, target.height);
   t.drawImage(c, 0, 0, target.width, target.height);
   if (foam) {
     t.save(); t.scale(target.width / P, target.height / P);
-    drawSurface(t, P, foam, mode, target.width);
+    drawSurface(t, P, foam, mode, target.width, lv);
+    if (mix < 1) {                       // straight espresso is darker; it lightens as milk mixes in
+      t.save(); ell(t, g.cx, g.ls, g.Rs, g.Rs * g.K); t.clip();
+      t.fillStyle = `rgba(40,18,6,${(0.32 * (1 - mix)).toFixed(3)})`; t.fillRect(0, 0, P, P); t.restore();
+    }
     t.restore();
   }
   if (extra) {
@@ -975,14 +1015,14 @@ function paintSurface(B, foam, pal) {
   B.x.putImageData(img, 0, 0);
 }
 // size is the pixel scene; outPx is how wide it ends up on screen, which sets the foam resolution
-function drawSurface(ctx, size, foam, mode, outPx) {
-  const g = geo(size), N = Math.max(64, Math.min(220, Math.round(g.R / size * outPx * 1.3)));
+function drawSurface(ctx, size, foam, mode, outPx, lv = 1) {
+  const g = geo(size, lv), N = Math.max(64, Math.min(220, Math.round(g.R / size * outPx * 1.3)));
   const B = surfBufs(N), key = mode + '|' + (foam.ver || 0);
   if (B.foam !== foam || B.key !== key) { paintSurface(B, foam, PAL[mode]); B.foam = foam; B.key = key; }
   ctx.save(); ell(ctx, g.cx, g.cy, g.rimI, g.rimI * g.K); ctx.clip();
-  ctx.translate(g.cx, g.lc); ctx.scale(1, g.K);
+  ctx.translate(g.cx, g.ls); ctx.scale(1, g.K);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(B.c, -g.R, -g.R, g.R * 2, g.R * 2);
+  ctx.drawImage(B.c, -g.Rs, -g.Rs, g.Rs * 2, g.Rs * 2);
   ctx.restore();
 }
 
@@ -1156,7 +1196,7 @@ const tipped = () => keyPour || ptrPour;
 function syncPour() { wantPour = tipped() && (!manualFlow || heldFlow() > 0); }
 
 function layout() {
-  const avail = Math.max(240, Math.min(window.innerWidth - 24, 680, window.innerHeight - (manualFlow ? 226 : 190)));
+  const avail = Math.max(240, Math.min(window.innerWidth - 24, 680, window.innerHeight - (manualFlow ? 254 : 218)));
   view.size = fitCanvas(stage, PX_STAGE, avail);
   setBarScale(view.size / PX_STAGE);
 }
@@ -1167,6 +1207,8 @@ function startRound(i, kind) {
         paceStart: p.strokes.map(() => null), doneAt: null, endT: 0, timeout: false,
         flowTime: p.strokes.map(() => [0, 0, 0, 0]), breaks: p.strokes.map(() => 0), switches: p.strokes.map(() => 0),
         lastFlow: 0, offT: 0, manual: manualFlow, flow: 0,
+        filling: true, level: CUP0, milk: MILK0, foam: FOAM0, foamK: foamRate(p), mix: 0, gate: false, dry: false, dryT: 0,
+        fillTime: [0, 0, 0, 0], fillWhite: 0,
         guideStage: kind === 'guided' ? (S.guide[p.id] || 0) : -1 };
   foam.reset();
   if (document.activeElement) document.activeElement.blur();
@@ -1190,10 +1232,29 @@ function tick(dt) {
   let pouring = false, flow = 0;
   if (G.phase === 'count') {
     G.ct += dt; if (G.ct >= 2.4) G.phase = 'play';
-  } else if (G.phase === 'play') {
+  } else if (G.phase === 'play' && G.filling) {
+    // first the plain milk: a thin stream from high up sinks under the crema and fills the cup
     G.t += dt; pouring = wantPour;
+    if (pouring) {
+      flow = G.manual ? heldFlow() : 1;
+      const v = Math.min(G.milk, FILL_RATE[flow] * dt);
+      G.milk -= v; G.level += v; G.fillTime[flow] += dt; G.mix = 1 - G.milk / MILK0;
+      if (G.milk <= 0) { G.filling = false; G.gate = true; G.offT = 1; }   // foam's at the spout
+    }
+    G.pouringNow = pouring; G.flow = flow;
+    const before = foam.n;
+    foam.step(pouring, aim.x, aim.y, aim.vx, aim.vy, dt, flow || undefined, LIQUID_TOP[flow]);
+    G.fillWhite += foam.n - before;
+    if (G.t >= G.limit) finishRound(true);
+    return;
+  } else if (G.phase === 'play') {
+    G.t += dt;
+    if (G.gate && !wantPour) G.gate = false;   // after the fill, let go once before the design starts
+    pouring = wantPour && !G.gate;
     const n = G.p.strokes.length, cur = G.p.strokes[Math.min(G.strokeI, n - 1)];
     if (pouring) flow = G.manual ? heldFlow() : cur.flow;
+    if (pouring && G.foam <= 0) { pouring = false; flow = 0; G.dry = true; }
+    if (pouring) { const v = Math.min(G.foam, FOAM_USE[flow] * G.foamK * dt); G.foam -= v; G.level = Math.min(1, G.level + v); }
     // baristas don't stop between a dot and its pull-through: easing into the next step's flow moves on
     if (pouring && G.manual && cur.kind === 'hold' && G.strokeI < n - 1 && G.lastFlow && flow !== G.lastFlow
         && flow === G.p.strokes[G.strokeI + 1].flow && G.pourTime[G.strokeI] >= cur.dur * 0.6) advanceStroke();
@@ -1218,7 +1279,9 @@ function tick(dt) {
       if (G.pourDur > 0.15 && G.strokeI < n) advanceStroke();
       G.pourDur = 0; G.lastFlow = 0;
     }
+    G.dryT = G.dry && !pouring ? G.dryT + dt : 0;
     if (G.doneAt !== null && ((!pouring && G.t - G.doneAt > 0.3) || G.t - G.doneAt > 1.2)) finishRound(false);
+    else if (G.dryT > 0.8) finishRound(false);
     else if (G.t >= G.limit) finishRound(true);
   }
   G.pouringNow = pouring; G.flow = flow;
@@ -1265,10 +1328,17 @@ function scoreRound() {
   acc /= wsum; std /= wsum; pace /= wsum;
   const finished = G.strokeI >= n && !G.timeout;
   const time = finished ? 1 - 0.5 * clamp01((G.endT / G.limit - 0.65) / 0.35) : 0;
+  // the base: the fill should leave the surface clean, so the design has a dark canvas
+  const ft = G.fillTime, fillT = ft[1] + ft[2] + ft[3];
+  const clean = clamp01(1 - G.fillWhite / 160), thin = fillT ? ft[1] / fillT : 0;
+  const base = G.filling ? 0 : 0.6 * clean + 0.4 * thin;
+  const baseTip = G.filling ? 'The cup never got filled'
+    : clean < 0.8 ? 'White showed while filling. Pour thin (A) and higher until the foam comes'
+    : thin < 0.8 ? 'Fill with the thin stream (A), so the milk sinks' : 'A clean, dark canvas to pour on';
   let total = Math.round(100 * (G.manual
-    ? 0.3 * acc + 0.15 * std + 0.15 * pace + 0.25 * stroke + 0.15 * time
+    ? 0.27 * acc + 0.13 * std + 0.13 * pace + 0.22 * stroke + 0.12 * base + 0.13 * time
     : 0.4 * acc + 0.25 * std + 0.2 * pace + 0.15 * time));
-  if (G.manual && ruined) total = Math.min(total, 84);
+  if (G.manual && (ruined || clean < 0.4)) total = Math.min(total, 84);   // a blotchy base has no contrast left for the design
   let strokeTip = 'The right flow for every step';
   if (worst && worst.sc < 0.85) {
     const want = FLOWS[worst.st.flow], step = `"${worst.st.label}"`;
@@ -1277,14 +1347,22 @@ function scoreRound() {
       : worst.rough ? `Keep one unbroken stream through ${step.toLowerCase()}`
       : `Switch to ${want.name.toLowerCase()} (${want.key}) as soon as ${step.toLowerCase()} starts`;
   }
-  return { total, stars: total >= 85 ? 3 : total >= 65 ? 2 : total >= 45 ? 1 : 0, acc, std, pace, stroke, strokeTip, manual: G.manual, time, finished };
+  return { total, stars: total >= 85 ? 3 : total >= 65 ? 2 : total >= 45 ? 1 : 0, acc, std, pace, stroke, strokeTip, base, baseTip, manual: G.manual, time, finished };
 }
 
 /* ---------- guide line ---------- */
 function drawGuide(ctx, size) {
-  const gm = geo(size), R = gm.R, stg = G.guideStage, P2 = v => toScreen(gm, v[0], v[1]);
+  const gm = geo(size, G.level), R = gm.Rs, stg = G.guideStage, P2 = v => toScreen(gm, v[0], v[1]);
   const blink = Math.floor(performance.now() / 300) % 2; // pixel games blink instead of pulsing
   const dot = (x, y, r) => ctx.fillRect(Math.round(x) - r, Math.round(y) - r, r * 2 + 1, r * 2 + 1);
+  if (G.filling) {                       // aim the fill into the middle, where the cup is deepest
+    if (stg > 0) return;
+    const [ax, ay] = P2([0, 0]), r = R * 0.22;
+    ctx.setLineDash([2, 2]); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+    ell(ctx, ax, ay, r, r * gm.K); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = PINK; dot(ax, ay, 1 + blink);
+    return;
+  }
   ctx.save();
   G.p.strokes.forEach((st, i) => {
     if (i < G.strokeI) return;
@@ -1350,7 +1428,7 @@ function draw() {
       drawPitcherUnder(x, gm, aim.x, aim.y, !!G.pouringNow, now, fl);
       x.drawImage(outlined(P, c => drawPitcherBody(c, gm, aim.x, aim.y, !!G.pouringNow, fl, ready)), 0, 0);
     }
-  });
+  }, null, G ? G.level : 1, G ? G.mix : 1);
   if (!G) return;
   const left = G.phase === 'count' ? 1 : clamp01(1 - G.t / G.limit), bar = $('#tbar');
   bar.style.width = (left * 100) + '%'; bar.classList.toggle('low', left < 0.25);
@@ -1361,21 +1439,27 @@ function draw() {
   if (G.phase === 'count') cnt.textContent = G.ct < 0.7 ? '3' : G.ct < 1.4 ? '2' : G.ct < 2.1 ? '1' : 'Pour!';
   else cnt.textContent = G.phase === 'play' && G.t < 0.5 ? 'Pour!' : '';
   const n = G.p.strokes.length;
+  $('#jug-milk').style.width = (G.milk / (MILK0 + FOAM0) * 100) + '%';
+  $('#jug-foam').style.width = (G.foam / (MILK0 + FOAM0) * 100) + '%';
   if (G.manual) {
-    const want = G.kind === 'guided' && G.guideStage < 2 && G.phase !== 'done' && G.strokeI < n ? G.p.strokes[G.strokeI].flow : 0;
+    const want = G.kind !== 'guided' || G.guideStage >= 2 || G.phase === 'done' ? 0
+      : G.filling ? 1 : G.strokeI < n ? G.p.strokes[G.strokeI].flow : 0;
     $$('.fk').forEach(el => { const f = +el.dataset.f; el.classList.toggle('on', heldFlow() === f); el.classList.toggle('want', want === f); });
   }
-  $('#hud-step').textContent = G.phase === 'done' ? (G.timeout ? 'Time!' : 'Nice. Let it settle…')
+  $('#hud-step').textContent = G.phase === 'done' ? (G.timeout ? 'Time!' : G.dry ? 'The pitcher ran dry' : 'Nice. Let it settle…')
+    : G.filling ? (G.manual ? 'Fill the cup: a thin stream (A) into the middle' : 'Fill the cup: hold in the middle')
+    : G.gate ? 'The foam is at the spout. Let go, then start the design'
+    : G.dry ? 'The pitcher is empty'
     : G.strokeI < n ? (n > 1 ? `Step ${G.strokeI + 1} of ${n}: ` : '') + G.p.strokes[G.strokeI].label : 'Done, let go';
 }
 
 /* ---------- input ---------- */
 function toAim(e) {
-  const r = stage.getBoundingClientRect(), gm = geo(PX_STAGE), k = PX_STAGE / r.width;
+  const r = stage.getBoundingClientRect(), gm = geo(PX_STAGE, G ? G.level : 1), k = PX_STAGE / r.width;
   let x = e.clientX - r.left, y = e.clientY - r.top;
   if (e.pointerType === 'touch') y -= 46; // keep the landing spot out from under the finger
   x *= k; y *= k;
-  aim.tx = (x - gm.cx) / gm.R; aim.ty = (y - gm.lc) / (gm.R * gm.K);
+  aim.tx = (x - gm.cx) / gm.Rs; aim.ty = (y - gm.ls) / (gm.Rs * gm.K);
 }
 window.addEventListener('pointermove', e => { if (view.active) toAim(e); });
 stage.addEventListener('pointerdown', e => {
@@ -1602,7 +1686,7 @@ function drawResult(showPath) {
       prevT = sm.t;
     });
     c.stroke(); c.restore();
-  });
+  }, null, G ? G.level : 1);
 }
 $('#show-path').addEventListener('change', e => drawResult(e.target.checked));
 function showResults() {
@@ -1614,7 +1698,7 @@ function showResults() {
     notes = coachPlacement(i, r.total);
     title = `Placed at ${pname(S.placed)}`;
   } else {
-    title = G.timeout ? 'Time ran out' : ['Keep pouring', 'Getting there', 'Looking good', 'Café-worthy'][r.stars];
+    title = G.timeout ? 'Time ran out' : G.dry && !r.finished ? 'The pitcher ran dry' : ['Keep pouring', 'Getting there', 'Looking good', 'Café-worthy'][r.stars];
     if (kind === 'free') {
       (S.hist[p.id] = S.hist[p.id] || []).push(r.total);
       S.best[p.id] = Math.max(S.best[p.id] ?? 0, r.stars);
@@ -1632,7 +1716,7 @@ function showResults() {
     ['Accuracy', r.acc, 'How close you stayed to the path'],
     ['Steadiness', r.std, 'How little the pitcher shook'],
     ['Pace', r.pace, 'How close you were to the right speed'],
-    ...(r.manual ? [['Stroke', r.stroke, r.strokeTip]] : []),
+    ...(r.manual ? [['Base', r.base, r.baseTip], ['Stroke', r.stroke, r.strokeTip]] : []),
     ['Time', r.time, r.finished ? `Finished in ${G.endT.toFixed(1)}s of ${G.limit}s` : 'You ran out of time'],
   ];
   $('#res-bars').innerHTML = bars.map(b => `<div class="bar-row"><span class="nm">${b[0]}</span><div class="bar"><i style="width:0%"></i></div><span>${Math.round(b[1] * 100)}</span><span class="ds">${b[2]}</span></div>`).join('');
