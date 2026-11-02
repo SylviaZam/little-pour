@@ -207,6 +207,14 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
 .hud-panel .tbar-wrap{margin:8px 0 0}
 .tip-panel{max-width:680px;width:100%;padding:10px 16px;margin-top:4px}
 .tip-panel .hint{margin-top:2px}
+.flow{display:flex;justify-content:center;gap:14px;margin:8px 0 6px}
+.flow[hidden]{display:none}
+.fk{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.fk b{font-family:'Pixelify Sans';font-weight:500;font-size:14px;min-width:26px;text-align:center;padding:1px 0;background:var(--card);border:2px solid var(--ink);box-shadow:0 3px 0 var(--ink);color:var(--ink)}
+.fk.want{color:var(--ink)}
+.fk.want b{outline:2px dashed var(--accent);outline-offset:3px}
+.fk.on{color:var(--ink)}
+.fk.on b{background:var(--accent);color:#fff;transform:translateY(3px);box-shadow:none}
 /* results */
 .res-art .toggle{padding:6px 12px;box-shadow:4px 4px 0 rgba(28,14,6,.5)}
 .res-panel{padding:20px 22px}
@@ -239,7 +247,7 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
     </div>
     <button class="btn primary" id="btn-start">Start pouring</button>
     <p class="welcome" id="welcome"></p>
-    <p class="tip">Glide on the trackpad to aim. Hold <span class="key">Space</span> or press and hold to pour.</p>
+    <p class="tip" id="start-tip"></p>
     <p class="foot-note">Made for a barista friend who wanted to get better at latte art without practicing on real customers.</p>
   </div>
   <div class="hero-art"><canvas id="hero" data-thumb="heart" data-size="440" data-scale="4" aria-hidden="true"></canvas></div>
@@ -313,7 +321,10 @@ body[data-mode="matcha"]{ --accent:#4D7731; --soft:#E3EED6 }
   </div>
   <div class="panel tip-panel">
   <div class="step" id="hud-step"></div>
-  <div class="hint">Glide to aim. Hold <span class="key">Space</span> or press and hold to pour. Let go between steps.</div>
+  <div class="flow" id="flow" aria-hidden="true">
+    <span class="fk" data-f="1"><b>A</b>Thin</span><span class="fk" data-f="2"><b>S</b>Steady</span><span class="fk" data-f="3"><b>D</b>Full</span>
+  </div>
+  <div class="hint" id="hud-hint"></div>
   </div>
 </section>
 
@@ -365,6 +376,12 @@ const TAU = Math.PI * 2;
 const STEP = 1 / 60;
 const FLOW = 380;            // foam particles per second at a slow pour
 const SPACING_AREA = 0.00078; // area one foam particle covers (normalized units)
+// how hard the milk comes out. A thin stream from high up dives under the crema and only cuts lines;
+// a full stream poured low rides on top and blooms white.
+const FLOWS = [null,
+  { key: 'A', code: 'KeyA', name: 'Thin',   milk: 0.15, push: 0.15, drag: 0.8 },
+  { key: 'S', code: 'KeyS', name: 'Steady', milk: 0.55, push: 0.6,  drag: 1.0 },
+  { key: 'D', code: 'KeyD', name: 'Full',   milk: 1.0,  push: 1.0,  drag: 1.2 }];
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -413,7 +430,9 @@ function prep(st) {
     }
     st.len = st.cum[st.cum.length - 1];
     st.start = st.pts[0]; st.end = st.pts[st.pts.length - 1];
+    st.flow = st.flow || (Math.hypot(st.end[0] - st.start[0], st.end[1] - st.start[1]) > st.len * 0.95 ? 1 : 3);
   } else {
+    st.flow = st.flow || 3;
     st.start = st.end = st.at;
     st.blobR = Math.sqrt(st.dur * FLOW * SPACING_AREA / Math.PI);
   }
@@ -489,7 +508,7 @@ const PATTERNS = [
   P('swan', 'Swan', 'Advanced', 5, 'A tilted rosetta wing, a small heart for the head, then drag it down into the neck.', [
     { kind:'line', pts:zigPts([0.14, 0.50], [0.46, -0.30], 0.28, 0.07, 6), dur:3.8, label:'Wiggle the wing up to one side' },
     { kind:'hold', at:[-0.32, -0.32], dur:0.6, label:'Pour a small heart for the head' },
-    { kind:'line', pts:bezPts([-0.32, -0.42], [-0.36, -0.02], [-0.22, 0.30], [0.08, 0.42]), dur:1.4, label:'Drag down through it for the neck' }]),
+    { kind:'line', pts:bezPts([-0.32, -0.42], [-0.36, -0.02], [-0.22, 0.30], [0.08, 0.42]), dur:1.4, flow:2, label:'Drag down through it for the neck' }]),
 ];
 const DIFF = {
   easy:   { name:'Easy',   tol:0.13,  mult:2.1 },
@@ -564,7 +583,8 @@ class Foam {
       }
     }
   }
-  step(pour, px, py, vx, vy, dt) {
+  // flow is 1 to 3 (see FLOWS); left out, it is guessed from the motion the way the thumbnails pour
+  step(pour, px, py, vx, vy, dt, flow) {
     const sp = Math.hypot(vx, vy), { x, y } = this;
     // each new pour (and each swing of a wiggle) is its own layer, so a thin crema edge shows between them
     if (pour && !this.wasPour) { if (sp < 0.5) this.batch++; this.bt = 0; }
@@ -579,14 +599,15 @@ class Foam {
       // a wiggle keeps full flow even though it moves fast.
       this.evx = (this.evx || 0) * 0.9 + vx * 0.1; this.evy = (this.evy || 0) * 0.9 + vy * 0.1; this.esp = (this.esp || 0) * 0.9 + sp * 0.1;
       const straight = this.esp > 0.05 ? Math.hypot(this.evx, this.evy) / this.esp : 0;
-      this.acc += dt * FLOW * (1 - 0.82 * straight * clamp01(sp / 0.8)) / (1 + sp * 0.3);
+      const F = FLOWS[flow];
+      this.acc += dt * FLOW * (F ? F.milk : 1 - 0.82 * straight * clamp01(sp / 0.8)) / (1 + sp * 0.3);
       while (this.acc >= 1) {
         this.acc -= 1;
         const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.014;
         this.add(px + Math.cos(a) * r, py + Math.sin(a) * r, 1);
       }
       {                                        // fresh milk pushes older foam outward, so it wraps into a crescent
-        const Rp = 0.24, Rp2 = Rp * Rp, cb = this.batch, push = 0.55 * dt / (1 + sp * 3);
+        const Rp = 0.24, Rp2 = Rp * Rp, cb = this.batch, push = 0.55 * dt / (1 + sp * 3) * (F ? F.push : 1);
         for (let i = 0; i < this.n; i++) {
           if (this.t[i] !== 1 || this.b[i] === cb) continue;
           const dx = x[i] - px, dy = y[i] - py, d2 = dx * dx + dy * dy;
@@ -594,7 +615,7 @@ class Foam {
         }
       }
       if (sp > 0.08) {                         // the stream drags foam along with it
-        const Rd = 0.07 + Math.min(0.11, sp * 0.075), Rd2 = Rd * Rd;
+        const Rd = (0.07 + Math.min(0.11, sp * 0.075)) * (F ? F.drag : 1), Rd2 = Rd * Rd;
         for (let i = 0; i < this.n; i++) {
           const dx = x[i] - px, dy = y[i] - py, d2 = dx * dx + dy * dy;
           if (d2 < Rd2) { const u = 1 - Math.sqrt(d2) / Rd, f = u * (0.4 + 0.6 * u) * SIM.DRAG; x[i] += vx * dt * f; y[i] += vy * dt * f; }
@@ -974,15 +995,18 @@ function drawSteam(ctx, g, time, alpha = 1) {
 // the milk pitcher, held above the cup; the milk lands at (u, v)
 const STEEL = ['#8E88A8', '#DCD9E8', '#F7F6FB', '#DCD9E8', '#B5B0CA', '#8E88A8'];
 // what sits on the drink under the pitcher: its shadow, and the splash or landing marker
-function drawPitcherUnder(ctx, g, u, v, pouring, time) {
-  const { R, K } = g, [lx, ly] = toScreen(g, u, v);
-  ctx.fillStyle = `rgba(60,35,20,${pouring ? 0.30 : 0.18})`;
-  ell(ctx, lx + R * 0.48, ly + R * 0.12, R * (pouring ? 0.42 : 0.5), R * (pouring ? 0.42 : 0.5) * K); ctx.fill();
+// flow (1 to 3, see FLOWS): a thin stream is poured from high up, a full one from close to the surface
+const SPOUT_H = [0, 0.40, 0.22, 0.12], STREAM_W = [0, 0.03, 0.06, 0.09], SPLASH = [0, 0.045, 0.09, 0.13];
+function drawPitcherUnder(ctx, g, u, v, pouring, time, flow = 2) {
+  const { R, K } = g, [lx, ly] = toScreen(g, u, v), sr = pouring ? 0.30 + SPOUT_H[flow] * 0.5 : 0.5;
+  ctx.fillStyle = `rgba(60,35,20,${pouring ? 0.36 - SPOUT_H[flow] * 0.3 : 0.18})`;
+  ell(ctx, lx + R * 0.48, ly + R * 0.12, R * sr, R * sr * K); ctx.fill();
   if (pouring) {
-    ctx.fillStyle = '#FFFCF5'; ell(ctx, lx, ly, R * 0.09, R * 0.09 * K); ctx.fill();
-    const ph = Math.floor(time / 120) % 4 / 4;
+    const sp = SPLASH[flow];
+    ctx.fillStyle = '#FFFCF5'; ell(ctx, lx, ly, R * sp, R * sp * K); ctx.fill();
+    const ph = Math.floor(time / 120) % 4 / 4, rr = R * (sp * 1.3 + ph * sp * 1.1);
     ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(lx, ly, R * (0.12 + ph * 0.10), R * (0.12 + ph * 0.10) * K, 0, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(lx, ly, rr, rr * K, 0, 0, TAU); ctx.stroke();
   } else {
     ctx.fillStyle = '#FFFFFF';
     const H = R * 0.50, X = Math.round(lx);
@@ -993,16 +1017,17 @@ function drawPitcherUnder(ctx, g, u, v, pouring, time) {
   }
 }
 // the stream and the pitcher itself, drawn into an outlined layer
-function drawPitcherBody(ctx, g, u, v, pouring) {
+// ready: tipped over the cup (Space or the button held) but not pouring yet
+function drawPitcherBody(ctx, g, u, v, pouring, flow = 2, ready = false) {
   const { R } = g, [lx, ly] = toScreen(g, u, v);
-  const H = pouring ? R * 0.22 : R * 0.50, tx = lx, ty = ly - H;
+  const H = R * (pouring ? SPOUT_H[flow] : ready ? 0.34 : 0.50), tx = lx, ty = ly - H;
   if (pouring) {
-    const w1 = Math.max(2, R * 0.06), w2 = Math.max(2, R * 0.04);
+    const w1 = Math.max(1, R * STREAM_W[flow]), w2 = Math.max(1, R * STREAM_W[flow] * 0.7);
     ctx.fillStyle = '#FFFCF5'; ctx.beginPath();
     ctx.moveTo(tx - w1 / 2, ty); ctx.lineTo(lx - w2 / 2, ly); ctx.lineTo(lx + w2 / 2, ly); ctx.lineTo(tx + w1 / 2, ty); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#EFE6D6'; ctx.fillRect(Math.round(tx + w2 / 2 - 1), Math.round(ty), 1, Math.round(H));
   }
-  ctx.save(); ctx.translate(tx, ty); ctx.rotate(pouring ? -0.40 : -0.12);
+  ctx.save(); ctx.translate(tx, ty); ctx.rotate(pouring ? -0.40 : ready ? -0.28 : -0.12);
   const bx = R * 0.66, rt = R * 0.33, rb = R * 0.41, top = -R * 0.12, bot = R * 0.56, e = 0.42;
   // handle
   ctx.strokeStyle = STEEL[4]; ctx.lineWidth = R * 0.10; ctx.lineCap = 'butt';
@@ -1109,9 +1134,16 @@ const view = { size: 500, active: false };
 let G = null;
 const aim = { x: 0.6, y: 0.75, tx: 0.6, ty: 0.75, px: 0.6, py: 0.75, vx: 0, vy: 0 };
 let wantPour = false, keyPour = false, ptrPour = false;
+// with a mouse or trackpad, Space or the button only tips the pitcher; A, S or D sets how hard it pours.
+// touch screens have no keys, so there the flow follows each step on its own.
+let manualFlow = matchMedia('(hover: hover) and (pointer: fine)').matches;
+const flowKeys = [];   // flow keys held down, the last pressed wins
+const heldFlow = () => flowKeys.length ? flowKeys[flowKeys.length - 1] : 0;
+const tipped = () => keyPour || ptrPour;
+function syncPour() { wantPour = tipped() && (!manualFlow || heldFlow() > 0); }
 
 function layout() {
-  const avail = Math.max(240, Math.min(window.innerWidth - 24, 680, window.innerHeight - 190));
+  const avail = Math.max(240, Math.min(window.innerWidth - 24, 680, window.innerHeight - (manualFlow ? 226 : 190)));
   view.size = fitCanvas(stage, PX_STAGE, avail);
   setBarScale(view.size / PX_STAGE);
 }
@@ -1120,12 +1152,15 @@ function startRound(i, kind) {
   G = { i, p, kind, diff, tol: DIFF[diff].tol, limit: timeLimit(p, diff), phase: 'count', ct: 0, t: 0,
         strokeI: 0, pourDur: 0, samples: [], pourTime: p.strokes.map(() => 0), prog: p.strokes.map(() => 0),
         paceStart: p.strokes.map(() => null), doneAt: null, endT: 0, timeout: false,
+        flowTime: p.strokes.map(() => [0, 0, 0, 0]), breaks: p.strokes.map(() => 0), switches: p.strokes.map(() => 0),
+        lastFlow: 0, offT: 0, manual: manualFlow, flow: 0,
         guideStage: kind === 'guided' ? (S.guide[p.id] || 0) : -1 };
   foam.reset();
   if (document.activeElement) document.activeElement.blur();
   $('#hud-name').textContent = p.name;
   $('#hud-kind').textContent = kind === 'guided' ? `Guided · ${GUIDE_NAMES[G.guideStage]} guide` : kind === 'free' ? 'On your own' : 'Placement pour';
   $('#hud-thumb').dataset.thumb = p.id;
+  setControlsHint();
   show('game'); layout(); drawThumb($('#hud-thumb'));
 }
 function advanceStroke() {
@@ -1139,15 +1174,23 @@ function tick(dt) {
   aim.vx = aim.vx * 0.5 + vx * 0.5; aim.vy = aim.vy * 0.5 + vy * 0.5;
   aim.px = aim.x; aim.py = aim.y;
   if (!G) return;
-  let pouring = false;
+  let pouring = false, flow = 0;
   if (G.phase === 'count') {
     G.ct += dt; if (G.ct >= 2.4) G.phase = 'play';
   } else if (G.phase === 'play') {
     G.t += dt; pouring = wantPour;
-    const n = G.p.strokes.length;
+    const n = G.p.strokes.length, cur = G.p.strokes[Math.min(G.strokeI, n - 1)];
+    if (pouring) flow = G.manual ? heldFlow() : cur.flow;
+    // baristas don't stop between a dot and its pull-through: easing into the next step's flow moves on
+    if (pouring && G.manual && cur.kind === 'hold' && G.strokeI < n - 1 && G.lastFlow && flow !== G.lastFlow
+        && flow === G.p.strokes[G.strokeI + 1].flow && G.pourTime[G.strokeI] >= cur.dur * 0.6) advanceStroke();
     if (pouring && G.strokeI < n) {
       const k = G.strokeI, st = G.p.strokes[k];
       if (G.paceStart[k] === null) G.paceStart[k] = G.t;
+      // the stroke itself: which flow, and whether the stream broke or changed partway
+      if (G.pourDur > 0 && G.offT > 0) G.breaks[k]++;
+      if (G.pourDur > 0.1 && G.lastFlow && flow !== G.lastFlow) G.switches[k]++;
+      G.flowTime[k][flow] += dt; G.lastFlow = flow;
       G.samples.push({ x: aim.x, y: aim.y, k, t: G.t });
       G.pourTime[k] += dt; G.pourDur += dt;
       if (st.kind === 'line') {
@@ -1156,13 +1199,17 @@ function tick(dt) {
         if (G.prog[k] >= 0.96) advanceStroke();
       } else G.prog[k] = G.pourTime[k] / st.dur;
     }
-    if (!pouring && G.pourDur > 0.15 && G.strokeI < n) advanceStroke();
-    if (!pouring && G.pourDur > 0) G.pourDur = 0;
+    // a short gap is a broken stream (or a slow key change); a longer one means you let go
+    G.offT = pouring ? 0 : G.offT + dt;
+    if (!pouring && G.offT >= (G.manual ? 0.14 : 0)) {
+      if (G.pourDur > 0.15 && G.strokeI < n) advanceStroke();
+      G.pourDur = 0; G.lastFlow = 0;
+    }
     if (G.doneAt !== null && ((!pouring && G.t - G.doneAt > 0.3) || G.t - G.doneAt > 1.2)) finishRound(false);
     else if (G.t >= G.limit) finishRound(true);
   }
-  G.pouringNow = pouring;
-  foam.step(pouring, aim.x, aim.y, aim.vx, aim.vy, dt);
+  G.pouringNow = pouring; G.flow = flow;
+  foam.step(pouring, aim.x, aim.y, aim.vx, aim.vy, dt, flow || undefined);
 }
 function finishRound(timeout) {
   G.phase = 'done'; G.timeout = timeout; G.endT = G.t;
@@ -1171,9 +1218,21 @@ function finishRound(timeout) {
 }
 function scoreRound() {
   const p = G.p, n = p.strokes.length, tol = G.tol;
-  let wsum = 0, acc = 0, std = 0, pace = 0;
+  let wsum = 0, acc = 0, std = 0, pace = 0, stroke = 0, worst = null, ruined = false;
   p.strokes.forEach((st, k) => {
     const S2 = G.samples.filter(s => s.k === k), w = Math.sqrt(st.dur) + 0.3; wsum += w;
+    // the stroke: time spent at the right flow (one notch off earns some), minus broken or wavering streams.
+    // every step counts the same here, since a quick pull-through makes or breaks the shape
+    const ft = G.flowTime[k], tot = ft[1] + ft[2] + ft[3];
+    if (tot > 0.05) {
+      const match = [1, 2, 3].reduce((a, f) => a + ft[f] * [1, 0.45, 0][Math.abs(f - st.flow)], 0) / tot;
+      const even = clamp01(1 - 0.3 * G.breaks[k] - 0.15 * G.switches[k]);
+      const sc = 0.75 * match + 0.25 * even;
+      stroke += sc / n;
+      if (match < 0.3) ruined = true;   // a full-flow pull-through or a thin-flow base can't make the shape
+      const used = ft.indexOf(Math.max(...ft));
+      if (!worst || sc < worst.sc) worst = { sc, st, used, match, rough: G.breaks[k] + G.switches[k] };
+    }
     if (S2.length < 4) return;
     let sumD = 0, jit = 0, prev = null; const bins = new Uint8Array(16);
     for (const s of S2) {
@@ -1193,8 +1252,19 @@ function scoreRound() {
   acc /= wsum; std /= wsum; pace /= wsum;
   const finished = G.strokeI >= n && !G.timeout;
   const time = finished ? 1 - 0.5 * clamp01((G.endT / G.limit - 0.65) / 0.35) : 0;
-  const total = Math.round(100 * (0.4 * acc + 0.25 * std + 0.2 * pace + 0.15 * time));
-  return { total, stars: total >= 85 ? 3 : total >= 65 ? 2 : total >= 45 ? 1 : 0, acc, std, pace, time, finished };
+  let total = Math.round(100 * (G.manual
+    ? 0.3 * acc + 0.15 * std + 0.15 * pace + 0.25 * stroke + 0.15 * time
+    : 0.4 * acc + 0.25 * std + 0.2 * pace + 0.15 * time));
+  if (G.manual && ruined) total = Math.min(total, 84);
+  let strokeTip = 'The right flow for every step';
+  if (worst && worst.sc < 0.85) {
+    const want = FLOWS[worst.st.flow], step = `"${worst.st.label}"`;
+    strokeTip = worst.match < 0.7 && worst.used !== worst.st.flow
+      ? `${step} wants ${want.name.toLowerCase()} (${want.key}), not ${FLOWS[worst.used].name.toLowerCase()}`
+      : worst.rough ? `Keep one unbroken stream through ${step.toLowerCase()}`
+      : `Switch to ${want.name.toLowerCase()} (${want.key}) as soon as ${step.toLowerCase()} starts`;
+  }
+  return { total, stars: total >= 85 ? 3 : total >= 65 ? 2 : total >= 45 ? 1 : 0, acc, std, pace, stroke, strokeTip, manual: G.manual, time, finished };
 }
 
 /* ---------- guide line ---------- */
@@ -1263,8 +1333,9 @@ function draw() {
     if (G.kind === 'guided' && G.phase !== 'done') drawGuide(x, P);
     if (G.phase !== 'play') drawSteam(x, gm, now, G.phase === 'count' ? 0.8 : 0.6);
     if (G.phase !== 'done') {
-      drawPitcherUnder(x, gm, aim.x, aim.y, !!G.pouringNow, now);
-      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, aim.x, aim.y, !!G.pouringNow)), 0, 0);
+      const fl = G.flow || 2, ready = G.phase === 'play' && tipped();
+      drawPitcherUnder(x, gm, aim.x, aim.y, !!G.pouringNow, now, fl);
+      x.drawImage(outlined(P, c => drawPitcherBody(c, gm, aim.x, aim.y, !!G.pouringNow, fl, ready)), 0, 0);
     }
   });
   if (!G) return;
@@ -1277,6 +1348,10 @@ function draw() {
   if (G.phase === 'count') cnt.textContent = G.ct < 0.7 ? '3' : G.ct < 1.4 ? '2' : G.ct < 2.1 ? '1' : 'Pour!';
   else cnt.textContent = G.phase === 'play' && G.t < 0.5 ? 'Pour!' : '';
   const n = G.p.strokes.length;
+  if (G.manual) {
+    const want = G.kind === 'guided' && G.guideStage < 2 && G.phase !== 'done' && G.strokeI < n ? G.p.strokes[G.strokeI].flow : 0;
+    $$('.fk').forEach(el => { const f = +el.dataset.f; el.classList.toggle('on', heldFlow() === f); el.classList.toggle('want', want === f); });
+  }
   $('#hud-step').textContent = G.phase === 'done' ? (G.timeout ? 'Time!' : 'Nice. Let it settle…')
     : G.strokeI < n ? (n > 1 ? `Step ${G.strokeI + 1} of ${n}: ` : '') + G.p.strokes[G.strokeI].label : 'Done, let go';
 }
@@ -1290,18 +1365,44 @@ function toAim(e) {
   aim.tx = (x - gm.cx) / gm.R; aim.ty = (y - gm.lc) / (gm.R * gm.K);
 }
 window.addEventListener('pointermove', e => { if (view.active) toAim(e); });
-stage.addEventListener('pointerdown', e => { toAim(e); ptrPour = true; wantPour = true; stage.setPointerCapture(e.pointerId); e.preventDefault(); });
-const ptrUp = () => { ptrPour = false; wantPour = keyPour; };
+stage.addEventListener('pointerdown', e => {
+  toAim(e); ptrPour = true;
+  if (e.pointerType === 'touch' && !flowKeys.length && manualFlow) { manualFlow = false; setControlsHint(); layout(); }
+  if (G) G.manual = G.phase === 'count' ? manualFlow : G.manual;
+  syncPour(); stage.setPointerCapture(e.pointerId); e.preventDefault();
+});
+const ptrUp = () => { ptrPour = false; syncPour(); };
 stage.addEventListener('pointerup', ptrUp); stage.addEventListener('pointercancel', ptrUp);
 window.addEventListener('keydown', e => {
   if (!view.active) return;
-  if (e.code === 'Space') { e.preventDefault(); keyPour = true; wantPour = true; }
+  if (e.code === 'Space') { e.preventDefault(); keyPour = true; }
+  const f = FLOWS.findIndex(F => F && F.code === e.code);
+  if (f > 0) {
+    e.preventDefault();
+    if (!flowKeys.includes(f)) flowKeys.push(f);
+    if (!manualFlow) { manualFlow = true; setControlsHint(); if (G && G.phase === 'count') G.manual = true; }
+  }
+  syncPour();
   if (e.code === 'Escape') leaveRound();
 });
-window.addEventListener('keyup', e => { if (e.code === 'Space') { keyPour = false; wantPour = ptrPour; } });
-window.addEventListener('blur', () => { keyPour = ptrPour = wantPour = false; });
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') keyPour = false;
+  const f = FLOWS.findIndex(F => F && F.code === e.code);
+  if (f > 0 && flowKeys.includes(f)) flowKeys.splice(flowKeys.indexOf(f), 1);
+  syncPour();
+});
+window.addEventListener('blur', () => { keyPour = ptrPour = wantPour = false; flowKeys.length = 0; });
 window.addEventListener('resize', () => { if (view.active) layout(); });
-function leaveRound() { G = null; wantPour = keyPour = ptrPour = false; show('menu'); }
+function leaveRound() { G = null; wantPour = keyPour = ptrPour = false; flowKeys.length = 0; show('menu'); }
+function setControlsHint() {
+  $('#hud-hint').innerHTML = manualFlow
+    ? 'Glide to aim. Hold <span class="key">Space</span> or click to tip the pitcher, then hold a flow key to pour.'
+    : 'Glide to aim. Press and hold to pour. Let go between steps.';
+  $('#flow').hidden = !manualFlow;
+  $('#start-tip').innerHTML = manualFlow
+    ? 'Glide on the trackpad to aim. Hold <span class="key">Space</span> or click, then <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> to set the flow.'
+    : 'Drag on the cup to aim. Press and hold to pour.';
+}
 $('#btn-quit').addEventListener('click', () => S.placed === null && G && G.kind === 'place' ? (G = null, show('place')) : leaveRound());
 
 /* ---------- thumbnails: each one is the game's own sim, poured along the ideal path ---------- */
@@ -1518,6 +1619,7 @@ function showResults() {
     ['Accuracy', r.acc, 'How close you stayed to the path'],
     ['Steadiness', r.std, 'How little the pitcher shook'],
     ['Pace', r.pace, 'How close you were to the right speed'],
+    ...(r.manual ? [['Stroke', r.stroke, r.strokeTip]] : []),
     ['Time', r.time, r.finished ? `Finished in ${G.endT.toFixed(1)}s of ${G.limit}s` : 'You ran out of time'],
   ];
   $('#res-bars').innerHTML = bars.map(b => `<div class="bar-row"><span class="nm">${b[0]}</span><div class="bar"><i style="width:0%"></i></div><span>${Math.round(b[1] * 100)}</span><span class="ds">${b[2]}</span></div>`).join('');
@@ -1823,7 +1925,7 @@ function sizeHero() {
 }
 window.addEventListener('resize', sizeHero);
 
-load(); S.visits++; save();
+load(); S.visits++; save(); setControlsHint();
 setMode(S.mode);
 sizeHero();
 show('start');
