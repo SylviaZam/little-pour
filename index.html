@@ -1603,10 +1603,13 @@ function paintWood(x, W, H) {
   x.putImageData(im, 0, 0);
 }
 // draw a prop into its own small canvas, give it hard edges and a dark outline
+// props are tilted, so leave room around the drawing for the corners to swing into
+const SPRITE_PAD = 24;
 function sprite(w, h, draw, ink = '#2A1A10') {
-  const c = document.createElement('canvas'); c.width = w + 2; c.height = h + 2;
+  const c = document.createElement('canvas'), pad = SPRITE_PAD + 1;
+  c.width = w + pad * 2; c.height = h + pad * 2; c.pad = pad;
   const x = c.getContext('2d', { willReadFrequently: true });
-  x.translate(1, 1); draw(x);
+  x.translate(pad, pad); draw(x);
   const im = x.getImageData(0, 0, c.width, c.height), d = im.data, W = c.width, n = W * c.height, on = new Uint8Array(n), O = hex(ink);
   for (let i = 0; i < n; i++) on[i] = d[i * 4 + 3] >= 110 ? 1 : 0;
   for (let i = 0; i < n; i++) {
@@ -1624,7 +1627,8 @@ function place(x, sp, px, py, sh = 2) {
   const c = document.createElement('canvas'); c.width = sp.width; c.height = sp.height;
   const s2 = c.getContext('2d'); s2.drawImage(sp, 0, 0); s2.globalCompositeOperation = 'source-in';
   s2.fillStyle = 'rgba(28,14,6,.42)'; s2.fillRect(0, 0, c.width, c.height);
-  x.drawImage(c, Math.round(px + sh), Math.round(py + sh)); x.drawImage(sp, Math.round(px), Math.round(py));
+  const ox = Math.round(px) - sp.pad, oy = Math.round(py) - sp.pad;
+  x.drawImage(c, ox + sh, oy + sh); x.drawImage(sp, ox, oy);
 }
 const rot = (x, w, h, a) => { x.translate(w / 2, h / 2); x.rotate(a); x.translate(-w / 2, -h / 2); };
 const rect = (x, c, a, b, w, h) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
