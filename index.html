@@ -1557,34 +1557,43 @@ const barView = { scale: 4, key: '' };
 const WOOD = ['#3A2317', '#5C3B28', '#6A4430', '#774E37', '#84593F', '#93664A'];
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const seeded = seed => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const EDGE = 9; // the bar's rounded front edge, in art pixels
 function paintWood(x, W, H) {
-  const im = x.createImageData(W, H), d = im.data, r = seeded(11), cols = WOOD.map(hex), PH = 20;
-  // each plank gets its own tone, grain wave and end joints, and sometimes a knot
-  const planks = [];
-  for (let k = 0; k * PH < H + PH; k++) {
-    const joints = new Set(); let jx = -r() * 160;
-    while (jx < W) { joints.add(Math.round(jx)); jx += 110 + r() * 130; }
-    planks.push({ tone: [0, 0, -1, 1][(r() * 4) | 0], ph: r() * 100, f: 0.016 + r() * 0.02, joints,
-                  knot: r() < 0.5 ? { x: r() * W, y: 6 + r() * (PH - 12) } : null });
-  }
+  const im = x.createImageData(W, H), d = im.data, r = seeded(11), cols = WOOD.map(hex), top = H - EDGE;
+  // one long slab: grain runs the full width, with broad figure and a couple of knots
+  const knots = [];
+  for (let k = 0; k < 3; k++) knots.push({ x: (0.15 + 0.32 * k + r() * 0.12) * W, y: (0.2 + r() * 0.6) * top });
+  const pores = new Uint8Array(W * H);
+  for (let i = 0; i < W * H * 0.008; i++) { const px = (r() * W) | 0, py = (r() * H) | 0; for (let k = 0; k < 2 + r() * 4; k++) pores[py * W + Math.min(W - 1, px + k)] = 1; }
   for (let y = 0; y < H; y++) {
-    const pl = planks[(y / PH) | 0], ry = y % PH;
     for (let xx = 0; xx < W; xx++) {
       let lv;
-      if (ry === PH - 1 || pl.joints.has(xx)) lv = 0;
-      else {
-        let t = ry + 2.2 * Math.sin(xx * pl.f + pl.ph) + 1.1 * Math.sin(xx * pl.f * 2.7 + pl.ph * 1.3), kd = 9;
-        if (pl.knot) {
-          const dx = (xx - pl.knot.x) / 2.6, dy = ry - pl.knot.y; kd = Math.sqrt(dx * dx + dy * dy);
-          t += (dy >= 0 ? 1 : -1) * 4.5 * Math.exp(-kd * 0.22);
+      if (y >= top) {
+        // the front edge: a highlight where it rounds over, then the face falling into shadow
+        const e = y - top;
+        lv = e === 0 ? 5 : e === 1 ? 4 : e < 4 ? 3 : e < EDGE - 2 ? 2 : 1;
+        if (e === EDGE - 1) lv = 0;
+      } else {
+        // gentle waves, plus long cathedral arches that give a slab its figure
+        const arch = 26 * Math.exp(-(((xx / W) - 0.62) ** 2) / 0.05) * (1 - Math.min(1, Math.abs(y / top - 0.45) * 1.4));
+        let t = y + 3 * Math.sin(xx * 0.017 + 1.1) + 1.4 * Math.sin(xx * 0.043 + y * 0.011)
+                  + 12 * Math.sin(xx * 0.0042 + 0.7) - arch * (1 - ((xx / W - 0.62) * 3.2) ** 2);
+        let kd = 99;
+        for (const k of knots) {
+          const dx = (xx - k.x) / 2.8, dy = y - k.y, dd = Math.sqrt(dx * dx + dy * dy);
+          if (dd < kd) kd = dd;
+          t += (dy >= 0 ? 1 : -1) * 6 * Math.exp(-dd * 0.16);
         }
-        const g = ((t / 3.6) % 1 + 1) % 1;
-        lv = 3 + pl.tone + (g < 0.2 ? -1 : g > 0.82 ? 1 : 0);
-        if (ry === 0 || pl.joints.has(xx - 1)) lv++;
-        if (kd < 2.4) lv = kd < 1.3 ? 1 : 2;
-        // warm light from the top left, stepped with ordered dither so it stays pixel art
-        const light = 0.55 - (xx / W) * 0.55 - (y / H) * 0.55, thr = (BAYER[(y & 3) * 4 + (xx & 3)] / 16 - 0.5) * 0.5;
-        lv += light > thr + 0.2 ? 1 : light < thr - 0.2 ? -1 : 0;
+        const g = ((t / 7.5) % 1 + 1) % 1;
+        lv = 3 + (g < 0.13 ? -1 : g > 0.6 && g < 0.72 ? 1 : 0);
+        if (pores[y * W + xx]) lv--;
+        if (kd < 3.2) lv = kd < 1.6 ? 1 : 2;
+        // warm light from the top left, plus a soft diagonal sheen on the varnish
+        const light = 0.5 - (xx / W) * 0.5 - (y / top) * 0.5;
+        const sheen = Math.exp(-(((xx / W) * 0.9 + (y / top) - 0.62) ** 2) / 0.006) * 0.5;
+        const v = light + sheen, thr = (BAYER[(y & 3) * 4 + (xx & 3)] / 16 - 0.5) * 0.12;
+        lv += v > thr + 0.2 ? 1 : v < thr - 0.2 ? -1 : 0;
+        if (y === top - 1) lv--;  // a thin shadow line where the top meets the edge
         lv = Math.max(1, Math.min(5, lv));
       }
       const c = cols[lv], o = (y * W + xx) * 4;
@@ -1698,19 +1707,19 @@ function drawBar() {
   // an old cup ring, a few drips, then the things a barista leaves on the bar
   x.strokeStyle = 'rgba(40,22,12,.45)'; x.lineWidth = 1;
   if (wide) { x.beginPath(); x.ellipse(Math.round(W * 0.8) + 0.5, Math.round(H * 0.7) + 0.5, 12, 9, 0, 0.3, 5.7); x.stroke(); }
-  [[0.24, 0.80, 4.2], [0.71, 0.88, 3.2], [0.86, 0.30, 4.6], [0.13, 0.40, 3], [0.57, 0.10, 3.6], [0.40, 0.95, 2.4], [0.93, 0.62, 2.6]]
+  [[0.24, 0.80, 4.2], [0.71, 0.82, 3.2], [0.86, 0.30, 4.6], [0.13, 0.40, 3], [0.57, 0.10, 3.6], [0.40, 0.86, 2.4], [0.93, 0.62, 2.6]]
     .forEach(([a, b, q]) => drip(x, W * a, H * b, q, mode, r));
   place(x, sugarSprite(mode, -0.25), 6, 10); place(x, sugarSprite(mode, 0.15), 18, 16);
-  place(x, towelSprite(mode), -10, H - 38, 3);
+  place(x, towelSprite(mode), -10, H - EDGE - 40, 3);
   place(x, tamperSprite(), W - 42, 12);
   if (wide) place(x, spoonSprite(), W - 40, Math.round(H * 0.46));
   if (mode === 'matcha') {
-    place(x, scoopSprite(), W - 56, H - 26);
+    place(x, scoopSprite(), W - 56, H - EDGE - 26);
     x.fillStyle = '#7FA65B';
-    for (let k = 0; k < 14; k++) x.fillRect(Math.round(W - 60 + r() * 14), Math.round(H - 22 + r() * 9), 1, 1);
+    for (let k = 0; k < 14; k++) x.fillRect(Math.round(W - 60 + r() * 14), Math.round(H - EDGE - 22 + r() * 9), 1, 1);
   } else {
     [[0, 0], [9, -6], [17, 3], [4, 9], [26, -3], [-10, 6], [14, 14]]
-      .forEach(([a, b]) => place(x, beanSprite(r() * TAU), W - 44 + a + r() * 3, H - 24 + b + r() * 3, 1));
+      .forEach(([a, b]) => place(x, beanSprite(r() * TAU), W - 44 + a + r() * 3, H - EDGE - 30 + b + r() * 3, 1));
   }
 }
 function setBarScale(sc) { barView.scale = Math.max(2, sc); drawBar(); }
