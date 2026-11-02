@@ -863,40 +863,10 @@ function pxStatic(P, mode, bg = PAGE_BG) {
 }
 // outlined() draws into a shared scratch canvas; keep() copies it out for caching
 function keep(P, src) { const c = document.createElement('canvas'); c.width = c.height = P; c.getContext('2d').drawImage(src, 0, 0); return c; }
-// the cup in the barista's hand: off the saucer, handle on the left
+// the cup as the barista holds it: off the saucer, handle on their side (the left)
 function pxHeld(P, mode) {
   const key = 'held' + P + mode;
   if (!pxCache.has(key)) pxCache.set(key, keep(P, outlined(P, c => drawCupBody(c, geo(P), mode, -1))));
-  return pxCache.get(key);
-}
-// the left hand: thumb on top of the handle, index finger through it, the rest curled under, a shirt cuff at the wrist
-const SKIN = ['#F2C9A6', '#DCA27E', '#B97C5C'], SLEEVE = ['#6F8FB0', '#526F8F'];
-function drawHand(c, g) {
-  const u = g.R, hx = g.cx - u * 1.17, hy = g.cy + u * 0.32;
-  const bar = (x0, y0, x1, y1, w, col) => { c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); };
-  // cuff, coming in from the lower left
-  c.save(); c.translate(hx - u * 0.80, hy + u * 0.40); c.rotate(-0.6);
-  c.fillStyle = SLEEVE[0]; c.fillRect(-u * 0.26, -u * 0.20, u * 0.42, u * 0.40);
-  c.fillStyle = SLEEVE[1]; c.fillRect(u * 0.10, -u * 0.20, u * 0.06, u * 0.40); c.fillRect(-u * 0.26, u * 0.12, u * 0.36, u * 0.08);
-  c.restore();
-  // palm and back of the hand
-  c.fillStyle = SKIN[1]; ell(c, hx - u * 0.52, hy + u * 0.12, u * 0.22, u * 0.25); c.fill();
-  c.fillStyle = SKIN[0]; ell(c, hx - u * 0.58, hy + u * 0.04, u * 0.11, u * 0.12); c.fill();
-  // middle and ring fingers curled under the handle
-  bar(hx - u * 0.42, hy + u * 0.20, hx - u * 0.06, hy + u * 0.34, u * 0.11, SKIN[2]);
-  bar(hx - u * 0.42, hy + u * 0.18, hx - u * 0.07, hy + u * 0.32, u * 0.07, SKIN[1]);
-  bar(hx - u * 0.44, hy + u * 0.30, hx - u * 0.16, hy + u * 0.44, u * 0.10, SKIN[2]);
-  bar(hx - u * 0.44, hy + u * 0.28, hx - u * 0.17, hy + u * 0.42, u * 0.06, SKIN[1]);
-  // index finger hooked through the loop
-  bar(hx - u * 0.40, hy + u * 0.04, hx + u * 0.06, hy + u * 0.06, u * 0.10, SKIN[2]);
-  bar(hx - u * 0.40, hy + u * 0.03, hx + u * 0.05, hy + u * 0.05, u * 0.06, SKIN[1]);
-  // thumb pressing on top of the handle
-  bar(hx - u * 0.56, hy - u * 0.04, hx - u * 0.10, hy - u * 0.31, u * 0.11, SKIN[1]);
-  bar(hx - u * 0.52, hy - u * 0.08, hx - u * 0.13, hy - u * 0.32, u * 0.05, SKIN[0]);
-}
-function pxHand(P) {
-  const key = 'hand' + P;
-  if (!pxCache.has(key)) pxCache.set(key, keep(P, outlined(P, c => drawHand(c, geo(P)))));
   return pxCache.get(key);
 }
 function pxFront(P, mode, lv = 1) {
@@ -925,7 +895,7 @@ function drawLowDrink(b, g, mode) {
 // scaled up with hard edges; the milk is painted between them at screen resolution,
 // so it keeps soft edges and gradients.
 // o.lv: how full the cup is; o.mix: how much milk has gone into the espresso so far (0 to 1);
-// o.held: the barista holds the cup off its saucer, tilted by o.rot
+// o.held: the cup is lifted off its saucer and tilted by o.rot
 function present(target, P, mode, foam, extra, bg, o = {}) {
   const lv = Math.round((o.lv ?? 1) * 50) / 50, mix = o.mix ?? 1;   // level in steps of 2%, so each front layer can be cached
   const g = geo(P, lv, o.held ? o.rot || 0 : 0), { c, x } = pxBuf(P, 'frame'), t = target.getContext('2d');
@@ -937,7 +907,7 @@ function present(target, P, mode, foam, extra, bg, o = {}) {
   } else x.drawImage(pxStatic(P, mode, bg || null), 0, 0);
   if (lv < 1) drawLowDrink(x, g, mode);
   x.drawImage(pxFront(P, mode, lv), 0, 0);
-  if (o.held) { x.drawImage(pxHand(P), 0, 0); x.restore(); }
+  if (o.held) x.restore();
   quantize(x, P, mode, !bg);
   t.setTransform(1, 0, 0, 1, 0, 0); t.imageSmoothingEnabled = false;
   if (!bg) t.clearRect(0, 0, target.width, target.height);
